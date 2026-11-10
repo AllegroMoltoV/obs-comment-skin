@@ -34,6 +34,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QScrollBar>
+#include <QSplitter>
 #include <QInputDialog>
 #include <QLineEdit>
 #include <QMessageBox>
@@ -216,11 +217,17 @@ CommentSkinDock::CommentSkinDock(QWidget *parent) : QWidget(parent)
 	scroll->setFrameShape(QFrame::NoFrame);
 	scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 	scroll->setWidget(content);
+	// 見本と設定の間の境界をドラッグして、見本の高さを変えられるようにする
+	auto *splitter = new QSplitter(Qt::Vertical, this);
+	splitter->setChildrenCollapsible(false);
+	splitter->addWidget(preview_);
+	splitter->addWidget(scroll);
+	splitter->setStretchFactor(0, 0);
+	splitter->setStretchFactor(1, 1);
 	auto *outer = new QVBoxLayout(this);
 	outer->setContentsMargins(0, 0, 0, 0);
 	outer->addWidget(preview_label_);
-	outer->addWidget(preview_);
-	outer->addWidget(scroll, 1);
+	outer->addWidget(splitter, 1);
 
 	// 横にスクロールさせず、欄が右端で切れないよう、ドックの最小の幅を中身の最小の幅に合わせる。
 	// 非表示の欄と閉じた区画は大きさの計算に入らないため、一時的に表示して求める

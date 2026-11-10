@@ -78,10 +78,20 @@ std::string js_string_literal(std::string_view text)
 
 std::string preview_style_script(std::string_view css)
 {
-	// 見本のメッセージを入れ直し、現れる・消えるアニメーションを最初から見られるようにする
+	// 見本のメッセージを入れ直し、現れる・消えるアニメーションを最初から見られるようにする。
+	// 見本は新しいメッセージを下に詰めて並べるため、上端で一部しか見えないメッセージは隠す。
+	// 位置はアニメーションの変形の影響を受けない offsetTop で比べ、見本の大きさが変わったときも判定し直す
 	return "(function(){var s=document.getElementById(\"cskin-generated\");if(s)s.textContent=" +
 	       js_string_literal(css) +
-	       ";var i=document.getElementById(\"items\");if(i)i.replaceChildren.apply(i,Array.from(i.children));})();";
+	       ";var i=document.getElementById(\"items\");if(!i)return;"
+	       "i.replaceChildren.apply(i,Array.from(i.children));"
+	       "var fit=function(){var c=document.getElementById(\"item-scroller\");if(!c)return;"
+	       "var top=c.offsetTop;Array.from(i.children).forEach(function(e){"
+	       "e.style.visibility=\"\";});Array.from(i.children).forEach(function(e){"
+	       "if(e.offsetTop<top-1)e.style.visibility=\"hidden\";});};"
+	       "requestAnimationFrame(function(){requestAnimationFrame(fit);});"
+	       "if(!window.cskinFitBound){window.cskinFitBound=true;window.addEventListener(\"resize\",function(){"
+	       "requestAnimationFrame(window.cskinFit);});}window.cskinFit=fit;})();";
 }
 
 } // namespace cskin::core

@@ -35,7 +35,7 @@ namespace {
 constexpr int REQUIRED_PANEL_VERSION = 3;
 constexpr int INIT_POLL_MS = 100;
 constexpr int INIT_MAX_ATTEMPTS = 300;
-constexpr int PREVIEW_MIN_HEIGHT = 260;
+constexpr int PREVIEW_MIN_HEIGHT = 160;
 
 QString text(const char *key)
 {

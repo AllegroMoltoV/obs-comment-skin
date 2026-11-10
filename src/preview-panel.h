@@ -41,6 +41,9 @@ public:
 
 	void set_css(const std::string &css);
 
+	// 初めの高さ。見本のメッセージが一通り見えるようにする
+	QSize sizeHint() const override { return QSize(QWidget::sizeHint().width(), 360); }
+
 	// CEF が止まる前に、ブラウザーを閉じる。OBS の終了のイベントで呼ぶ
 	void shutdown();
 
