@@ -14,12 +14,15 @@
   html, body { margin: 0; height: 100%; background: #3a3f4b; overflow: hidden; }
   body { font-family: Roboto, Arial, sans-serif; }
   yt-live-chat-renderer { display: flex; flex-direction: column; height: 100%; background-color: #0f0f0f; color: #fff; }
-  yt-live-chat-header-renderer { display: flex; align-items: center; height: 40px; padding: 0 16px; background-color: #0f0f0f; border-bottom: 1px solid #303030; font-size: 14px; color: #f1f1f1; }
+  yt-live-chat-header-renderer { display: flex; align-items: center; flex: none; height: 40px; padding: 0 16px; background-color: #0f0f0f; border-bottom: 1px solid #303030; font-size: 14px; color: #f1f1f1; }
+  #ticker { display: flex; flex: none; gap: 6px; padding: 6px 12px; overflow: hidden; }
+  .ticker-item { display: flex; align-items: center; gap: 4px; padding: 2px 8px 2px 2px; border-radius: 12px; font-size: 12px; white-space: nowrap; }
+  .ticker-item i { width: 20px; height: 20px; border-radius: 50%; }
   #item-scroller { flex: 1; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; padding: 8px 0; }
   yt-live-chat-text-message-renderer { display: flex; align-items: flex-start; padding: 4px 24px; font-size: 14px; }
   yt-img-shadow#author-photo { flex: none; width: 24px; height: 24px; margin-right: 16px; border-radius: 50%; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 500; color: #fff; }
   #content { min-width: 0; line-height: 20px; }
-  #timestamp { margin-right: 8px; font-size: 11px; color: #aaa; }
+  yt-live-chat-text-message-renderer #timestamp { display: none; margin-right: 8px; font-size: 11px; color: #aaa; }
   yt-live-chat-author-chip { margin-right: 8px; }
   #author-name { font-weight: 500; color: #aaa; }
   #author-name.member { color: #2ba640; }
@@ -27,12 +30,28 @@
   #author-name.owner { padding: 0 4px; border-radius: 2px; background-color: #ffd600; color: #111; }
   #chat-badges svg { width: 14px; height: 14px; margin-left: 2px; vertical-align: -2px; }
   #message { font-size: 14px; line-height: 20px; color: #fff; word-wrap: break-word; }
+  yt-live-chat-paid-message-renderer, yt-live-chat-membership-item-renderer { display: block; margin: 4px 24px; border-radius: 4px; overflow: hidden; font-size: 14px; }
+  yt-live-chat-paid-message-renderer #header, yt-live-chat-membership-item-renderer #header { display: flex; align-items: center; padding: 8px 16px; }
+  yt-live-chat-paid-message-renderer yt-img-shadow#author-photo, yt-live-chat-membership-item-renderer yt-img-shadow#author-photo { width: 40px; height: 40px; }
+  yt-live-chat-paid-message-renderer #author-name, yt-live-chat-membership-item-renderer #author-name { display: block; color: rgba(255, 255, 255, 0.8); background: none; padding: 0; }
+  #purchase-amount, #header-subtext { display: block; font-weight: 500; font-size: 15px; }
+  yt-live-chat-paid-message-renderer #header { background-color: #1565c0; }
+  yt-live-chat-paid-message-renderer #content { padding: 8px 16px; background-color: #1e88e5; }
+  yt-live-chat-membership-item-renderer #header, yt-live-chat-membership-item-renderer #content { background-color: #0f9d58; }
+  yt-live-chat-membership-item-renderer #content { padding: 0 16px 8px; }
+  yt-live-chat-paid-message-renderer #message, yt-live-chat-membership-item-renderer #message { color: #fff; }
 </style>
 <style id="cskin-generated"></style>
 </head>
 <body>
 <yt-live-chat-renderer>
   <yt-live-chat-header-renderer>チャット</yt-live-chat-header-renderer>
+  <div id="ticker">
+    <yt-live-chat-ticker-renderer style="display: contents">
+      <span class="ticker-item" style="background:#1e88e5"><i style="background:#ab47bc"></i>¥500</span>
+      <span class="ticker-item" style="background:#0f9d58"><i style="background:#26a69a"></i>メンバー</span>
+    </yt-live-chat-ticker-renderer>
+  </div>
   <div id="item-scroller">
     <div id="items">
       <yt-live-chat-text-message-renderer author-type="">
@@ -43,6 +62,18 @@
           <span id="message">こんばんは!今日も楽しみにしていました</span>
         </div>
       </yt-live-chat-text-message-renderer>
+      <yt-live-chat-membership-item-renderer>
+        <div id="card">
+          <div id="header">
+            <yt-img-shadow id="author-photo" style="background:#26a69a">み</yt-img-shadow>
+            <div id="header-content">
+              <yt-live-chat-author-chip><span id="author-name" class="member">みどりの森</span></yt-live-chat-author-chip>
+              <div id="header-subtext">メンバー歴 3 か月</div>
+            </div>
+          </div>
+          <div id="content"><div id="message">いつもありがとうございます</div></div>
+        </div>
+      </yt-live-chat-membership-item-renderer>
       <yt-live-chat-text-message-renderer author-type="member">
         <yt-img-shadow id="author-photo" style="background:#26a69a">み</yt-img-shadow>
         <div id="content">
@@ -59,6 +90,18 @@
           <span id="message">リクエストはこちらのコメントで受け付けています</span>
         </div>
       </yt-live-chat-text-message-renderer>
+      <yt-live-chat-paid-message-renderer>
+        <div id="card">
+          <div id="header">
+            <yt-img-shadow id="author-photo" style="background:#ab47bc">そ</yt-img-shadow>
+            <div id="header-content">
+              <span id="author-name">そらまめ</span>
+              <span id="purchase-amount">¥500</span>
+            </div>
+          </div>
+          <div id="content"><div id="message">配信おつかれさまです!</div></div>
+        </div>
+      </yt-live-chat-paid-message-renderer>
       <yt-live-chat-text-message-renderer author-type="owner">
         <yt-img-shadow id="author-photo" style="background:#ef6c00">配</yt-img-shadow>
         <div id="content">

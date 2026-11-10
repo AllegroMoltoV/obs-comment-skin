@@ -27,7 +27,7 @@ namespace cskin::core {
 // U+2028 と U+2029、< と > をエスケープし、CSS の中身が文字列の外へ出ないようにする
 std::string js_string_literal(std::string_view text);
 
-// 見本のページの style 要素 #cskin-generated の中身を css にするスクリプト
+// 見本のページの style 要素 #cskin-generated の中身を css にし、見本のメッセージを入れ直すスクリプト
 std::string preview_style_script(std::string_view css);
 
 } // namespace cskin::core

@@ -78,8 +78,10 @@ std::string js_string_literal(std::string_view text)
 
 std::string preview_style_script(std::string_view css)
 {
+	// 見本のメッセージを入れ直し、現れる・消えるアニメーションを最初から見られるようにする
 	return "(function(){var s=document.getElementById(\"cskin-generated\");if(s)s.textContent=" +
-	       js_string_literal(css) + ";})();";
+	       js_string_literal(css) +
+	       ";var i=document.getElementById(\"items\");if(i)i.replaceChildren.apply(i,Array.from(i.children));})();";
 }
 
 } // namespace cskin::core
