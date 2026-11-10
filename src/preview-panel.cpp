@@ -158,6 +158,12 @@ void PreviewPanel::push_css()
 	browser_->executeJavaScript(script);
 }
 
+void PreviewPanel::close_browser()
+{
+	if (browser_ && !shut_down_)
+		browser_->closeBrowser();
+}
+
 void PreviewPanel::shutdown()
 {
 	if (shut_down_)

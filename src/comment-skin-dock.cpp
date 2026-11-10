@@ -473,6 +473,15 @@ void CommentSkinDock::on_preset_delete()
 	set_status(text("Preset.Deleted").arg(name));
 }
 
+bool CommentSkinDock::event(QEvent *e)
+{
+	// OBS 33 のドックは、閉じるボタンで中身のウィジェットへ QEvent::User + QEvent::Close を送る。
+	// OBS のブラウザーのドックと同じく、このときにブラウザーを閉じる
+	if (e->type() == QEvent::Type(QEvent::User + QEvent::Close))
+		preview_->close_browser();
+	return QWidget::event(e);
+}
+
 void CommentSkinDock::shutdown()
 {
 	apply_timer_->stop();

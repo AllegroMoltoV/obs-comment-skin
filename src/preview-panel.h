@@ -51,6 +51,11 @@ public:
 	// CEF が止まる前に、ブラウザーを閉じる。OBS の終了のイベントで呼ぶ
 	void shutdown();
 
+	// ドックの閉じるボタンで、ブラウザーを閉じる。OBS のブラウザーのドックと同じ扱いにする。
+	// 閉じるボタンの後のブラウザーはメインフレームを返さず、executeJavaScript を送ると obs-browser の中で落ちる。
+	// 閉じておくと、ドックを再び開いたときに obs-browser がブラウザーを作り直し、最新の startup script を当てる
+	void close_browser();
+
 private:
 	void wait_for_browser();
 	void create_browser();

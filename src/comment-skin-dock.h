@@ -60,6 +60,10 @@ public:
 	// OBS の終了の前に、見本のブラウザーを閉じる
 	void shutdown();
 
+protected:
+	// ドックの閉じるボタンで OBS が送るイベントを受けて、見本のブラウザーを閉じる
+	bool event(QEvent *e) override;
+
 private slots:
 	void on_source_changed();
 	void on_target_changed();
