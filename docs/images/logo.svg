@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 256 256" role="img" aria-labelledby="title description">
+  <title id="title">Comment Skin - A</title>
+  <desc id="description">Three comment rows, each dressed in a different style: filled, outlined, and with a square avatar.</desc>
+  <rect x="12" y="12" width="232" height="232" rx="24" fill="#141414"/>
+  <!-- Row 1: round avatar, filled bubble -->
+  <circle cx="56" cy="74" r="16" fill="#EEEEEE"/>
+  <rect x="82" y="58" width="128" height="32" rx="16" fill="#EEEEEE"/>
+  <!-- Row 2: round avatar, outlined bubble -->
+  <circle cx="56" cy="128" r="16" fill="#3CC8B4"/>
+  <rect x="85" y="115" width="98" height="26" rx="13" fill="none" stroke="#3CC8B4" stroke-width="6"/>
+  <!-- Row 3: square avatar, filled bubble -->
+  <rect x="40" y="166" width="32" height="32" rx="8" fill="#F4A340"/>
+  <rect x="82" y="166" width="138" height="32" rx="16" fill="#F4A340"/>
+</svg>

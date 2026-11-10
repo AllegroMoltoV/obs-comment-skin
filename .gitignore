@@ -11,6 +11,7 @@
 !/src
 !/tests
 !/tools
+!/.soko-kun
 !.clang-format
 !.gersemirc
 !.gitignore
