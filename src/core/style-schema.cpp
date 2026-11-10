@@ -198,6 +198,84 @@ const std::vector<SectionDef> &youtube_sections()
 	return sections;
 }
 
+const std::vector<SectionDef> &twitch_sections()
+{
+	// 共通の項目は YouTube と同じキーにし、プリセットの値の意味をそろえる
+	static const std::vector<Condition> background_set = {{"message_background_color", "set"},
+							      {"broadcaster_background_color", "set"},
+							      {"moderator_background_color", "set"},
+							      {"vip_background_color", "set"},
+							      {"subscriber_background_color", "set"}};
+	static const std::vector<SectionDef> sections = {
+		{"Section.General",
+		 {
+			 font("font", "Item.Font"),
+		 }},
+		{"Section.Message",
+		 {
+			 number("message_font_size", "Item.FontSize", 8, 96, "px"),
+			 number("message_line_height", "Item.LineHeight", 100, 300, "%"),
+			 number("message_letter_spacing", "Item.LetterSpacing", 0, 20, "px"),
+			 color("message_color", "Item.TextColor"),
+			 toggle("message_new_line", "Item.MessageNewLine", false),
+		 }},
+		{"Section.Name",
+		 {
+			 number("name_font_size", "Item.FontSize", 8, 96, "px"),
+			 toggle("use_user_color", "Item.UseUserColor", true),
+			 when(color("name_color", "Item.TextColor"), {{"use_user_color", "off"}}),
+			 color("broadcaster_name_color", "Item.BroadcasterColor"),
+			 color("moderator_name_color", "Item.ModeratorColor"),
+			 color("vip_name_color", "Item.VipColor"),
+			 color("subscriber_name_color", "Item.SubscriberColor"),
+			 toggle("badges_visible", "Item.BadgesVisible", true),
+			 toggle("name_colon_visible", "Item.NameColonVisible", true),
+		 }},
+		{"Section.Outline",
+		 {
+			 toggle("outline_enabled", "Item.OutlineEnabled", false),
+			 when(number("outline_width", "Item.OutlineWidth", 1, 8, "px", 2), {{"outline_enabled", "on"}}),
+			 when(color("outline_color", "Item.OutlineColor"), {{"outline_enabled", "on"}}),
+		 }},
+		{"Section.Background",
+		 {
+			 color("background_color", "Item.BackgroundColor"),
+			 opacity("background_opacity", "Item.Opacity"),
+			 color("message_background_color", "Item.MessageBackgroundColor"),
+			 color("broadcaster_background_color", "Item.BroadcasterBackgroundColor"),
+			 color("moderator_background_color", "Item.ModeratorBackgroundColor"),
+			 color("vip_background_color", "Item.VipBackgroundColor"),
+			 color("subscriber_background_color", "Item.SubscriberBackgroundColor"),
+			 when(opacity("message_background_opacity", "Item.MessageBackgroundOpacity"), background_set),
+			 when(choice("message_background_style", "Item.MessageBackgroundStyle", {"fill", "bar"}),
+			      background_set),
+		 }},
+		{"Section.Notice",
+		 {
+			 number("notice_font_size", "Item.FontSize", 8, 96, "px"),
+			 color("notice_color", "Item.TextColor"),
+		 }},
+		{"Section.Layout",
+		 {
+			 toggle("header_visible", "Item.HeaderVisible", true),
+			 toggle("input_panel_visible", "Item.TwitchInputVisible", true),
+			 toggle("engagement_visible", "Item.TwitchWelcomeVisible", true),
+		 }},
+		{"Section.Animation",
+		 {
+			 toggle("fade_in", "Item.FadeIn", false),
+			 when(number("fade_in_duration", "Item.FadeInDuration", 0, 3000, "ms", 200),
+			      {{"fade_in", "on"}, {"slide_in", "!none"}}),
+			 choice("slide_in", "Item.SlideIn", {"none", "left", "right", "bottom"}),
+			 toggle("remove_old", "Item.RemoveOld", false),
+			 when(number("remove_after", "Item.RemoveAfter", 1, 600, "s", 30), {{"remove_old", "on"}}),
+			 when(number("fade_out_duration", "Item.FadeOutDuration", 0, 3000, "ms", 200),
+			      {{"remove_old", "on"}}),
+		 }},
+	};
+	return sections;
+}
+
 std::string sanitize_font_name(std::string_view name)
 {
 	static constexpr std::string_view REJECTED = "()\"\\;{}<>@";

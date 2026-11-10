@@ -78,6 +78,8 @@ private:
 	obs_source_t *selected_source() const;
 	core::ChatTarget current_target() const;
 	std::string generated_css() const;
+	// チャットの種類の設定のパネル。対応していない種類では nullptr を返す
+	SettingsPanel *panel_for(core::ChatTarget target) const;
 	void update_view();
 	void update_css_view();
 	void set_status(const QString &message);
@@ -89,8 +91,8 @@ private:
 	QPushButton *create_source_button_{nullptr};
 	QComboBox *target_combo_{nullptr};
 	QLabel *target_hint_label_{nullptr};
-	QLabel *settings_label_{nullptr};
 	SettingsPanel *youtube_panel_{nullptr};
+	SettingsPanel *twitch_panel_{nullptr};
 	PreviewPanel *preview_{nullptr};
 	QLabel *preview_label_{nullptr};
 	QWidget *preset_row_{nullptr};

@@ -74,6 +74,7 @@ struct SectionDef {
 };
 
 const std::vector<SectionDef> &youtube_sections();
+const std::vector<SectionDef> &twitch_sections();
 const ItemDef *find_item(const std::vector<SectionDef> &sections, std::string_view key);
 
 // 設定の値。項目が無いときは既定の見た目のままにする

@@ -18,6 +18,8 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #pragma once
 
+#include "core/chat-target.h"
+
 #include <QLabel>
 #include <QTimer>
 #include <QVBoxLayout>
@@ -40,6 +42,8 @@ public:
 	~PreviewPanel() override;
 
 	void set_css(const std::string &css);
+	// プレビューの見本のページを、チャットの種類に合わせて切り替える
+	void set_target(core::ChatTarget target);
 
 	// 初めの高さ。見本のメッセージが一通り見えるようにする
 	QSize sizeHint() const override { return QSize(QWidget::sizeHint().width(), 360); }
@@ -51,6 +55,7 @@ private:
 	void wait_for_browser();
 	void create_browser();
 	void push_css();
+	std::string page_url() const;
 
 	QVBoxLayout *layout_{nullptr};
 	QLabel *message_label_{nullptr};
@@ -59,6 +64,7 @@ private:
 	QCefWidget *browser_{nullptr};
 	int init_attempts_{0};
 	std::string css_;
+	core::ChatTarget target_ = core::ChatTarget::YouTube;
 	bool shut_down_{false};
 };
 

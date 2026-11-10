@@ -18,6 +18,8 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include "youtube-style.h"
 
+#include "css-builder.h"
+
 #include <algorithm>
 
 namespace cskin::core {
@@ -30,144 +32,7 @@ constexpr std::string_view PAID = "yt-live-chat-paid-message-renderer";
 constexpr std::string_view MEMBERSHIP = "yt-live-chat-membership-item-renderer";
 constexpr std::string_view STICKER = "yt-live-chat-paid-sticker-renderer";
 
-// 値を読む。範囲の外の値は表の範囲に収める
-class Reader {
-public:
-	explicit Reader(const StyleValues &values) : values_(sanitize(youtube_sections(), values)) {}
-
-	std::optional<int> number(std::string_view key) const
-	{
-		const auto it = values_.numbers.find(key);
-		if (it != values_.numbers.end())
-			return it->second;
-		const ItemDef *item = find_item(youtube_sections(), key);
-		return item ? item->default_value : std::nullopt;
-	}
-
-	bool toggle(std::string_view key) const { return number(key).value_or(0) != 0; }
-
-	std::optional<Rgb> color(std::string_view key) const
-	{
-		const auto it = values_.colors.find(key);
-		return it != values_.colors.end() ? std::optional<Rgb>(it->second) : std::nullopt;
-	}
-
-	std::string text(std::string_view key) const
-	{
-		const auto it = values_.texts.find(key);
-		if (it != values_.texts.end())
-			return it->second;
-		const ItemDef *item = find_item(youtube_sections(), key);
-		return item && !item->choices.empty() ? std::string(item->choices.front()) : std::string();
-	}
-
-private:
-	StyleValues values_;
-};
-
-// ロケールに依存しないよう、小数を自前で書く。0 から 100 の百分率を 0 から 1 にする
-std::string alpha_text(int percent)
-{
-	percent = std::clamp(percent, 0, 100);
-	if (percent == 100)
-		return "1";
-	if (percent == 0)
-		return "0";
-	std::string digits = std::to_string(percent);
-	if (digits.size() == 1)
-		digits = "0" + digits;
-	if (digits.back() == '0')
-		digits.pop_back();
-	return "0." + digits;
-}
-
-// 百分率を倍率にする。140 は 1.4
-std::string ratio_text(int percent)
-{
-	std::string text = std::to_string(percent / 100);
-	const int fraction = percent % 100;
-	if (fraction != 0) {
-		std::string digits = std::to_string(fraction);
-		if (digits.size() == 1)
-			digits = "0" + digits;
-		if (digits.back() == '0')
-			digits.pop_back();
-		text += "." + digits;
-	}
-	return text;
-}
-
-std::string px(int value)
-{
-	return std::to_string(value) + "px";
-}
-
-std::string rgb_text(const Rgb &c)
-{
-	return "rgb(" + std::to_string(c.r) + ", " + std::to_string(c.g) + ", " + std::to_string(c.b) + ")";
-}
-
-std::string rgba_text(const Rgb &c, int percent)
-{
-	return "rgba(" + std::to_string(c.r) + ", " + std::to_string(c.g) + ", " + std::to_string(c.b) + ", " +
-	       alpha_text(percent) + ")";
-}
-
-std::string join_selectors(std::initializer_list<std::string> selectors)
-{
-	std::string result;
-	for (const auto &s : selectors) {
-		if (!result.empty())
-			result += ",\n";
-		result += s;
-	}
-	return result;
-}
-
-std::string under(std::string_view host, std::string_view descendant)
-{
-	return std::string(host) + " " + std::string(descendant);
-}
-
-class CssWriter {
-public:
-	using Declarations = std::vector<std::pair<std::string, std::string>>;
-
-	// 宣言を 1 つ足す。同じセレクターの宣言は 1 つの規則にまとめ、同じプロパティは後の値で置き換える
-	void add(const std::string &selector, const std::string &property, const std::string &value)
-	{
-		auto rule = std::find_if(rules_.begin(), rules_.end(),
-					 [&](const auto &entry) { return entry.first == selector; });
-		if (rule == rules_.end()) {
-			rules_.emplace_back(selector, Declarations());
-			rule = rules_.end() - 1;
-		}
-		auto declaration = std::find_if(rule->second.begin(), rule->second.end(),
-						[&](const auto &entry) { return entry.first == property; });
-		if (declaration != rule->second.end())
-			declaration->second = value;
-		else
-			rule->second.emplace_back(property, value);
-	}
-
-	void add_raw(const std::string &text) { raw_ += text; }
-
-	std::string str() const
-	{
-		std::string css;
-		for (const auto &[selector, declarations] : rules_) {
-			css += selector + " {\n";
-			for (const auto &[property, value] : declarations)
-				css += "  " + property + ": " + value + " !important;\n";
-			css += "}\n";
-		}
-		return css + raw_;
-	}
-
-private:
-	std::vector<std::pair<std::string, Declarations>> rules_;
-	std::string raw_;
-};
+using namespace css;
 
 void add_font(CssWriter &css, const Reader &r, const std::string &selector, std::string_view size_key,
 	      std::string_view color_key)
@@ -310,19 +175,9 @@ void write_outline(CssWriter &css, const Reader &r)
 {
 	if (!r.toggle("outline_enabled"))
 		return;
-	const std::string w = px(r.number("outline_width").value_or(2));
-	const std::string n = "-" + w;
-	const std::string c = rgb_text(r.color("outline_color").value_or(Rgb{0, 0, 0}));
-	std::string shadow;
-	const std::pair<std::string, std::string> offsets[] = {{n, n},   {"0", n}, {w, n},   {n, "0"},
-							       {w, "0"}, {n, w},   {"0", w}, {w, w}};
-	for (const auto &[x, y] : offsets) {
-		if (!shadow.empty())
-			shadow += ", ";
-		shadow += x + " " + y + " 0 " + c;
-	}
 	css.add(join_selectors({std::string(TEXT), std::string(PAID), std::string(MEMBERSHIP), std::string(STICKER)}),
-		"text-shadow", shadow);
+		"text-shadow",
+		outline_shadow(r.number("outline_width").value_or(2), r.color("outline_color").value_or(Rgb{0, 0, 0})));
 }
 
 void write_message_background(CssWriter &css, const Reader &r)
@@ -375,63 +230,19 @@ void write_paid(CssWriter &css, const Reader &r)
 			"background", "transparent");
 }
 
-void write_animation(CssWriter &css, const Reader &r)
+void write_messages_animation(CssWriter &css, const Reader &r)
 {
-	const bool fade_in = r.toggle("fade_in");
-	const std::string slide = r.text("slide_in");
-	const bool slide_in = slide != "none" && !slide.empty();
-	const bool remove_old = r.toggle("remove_old");
-	if (!fade_in && !slide_in && !remove_old)
-		return;
-
 	// 動かすのはチャットのメッセージだけにする。YouTube の案内などの要素は消さない
-	const std::string hosts =
-		join_selectors({std::string(TEXT), std::string(PAID), std::string(MEMBERSHIP), std::string(STICKER)});
-	std::string animations;
-	if (fade_in || slide_in) {
-		std::string from_transform = "none";
-		if (slide == "left")
-			from_transform = "translateX(-100%)";
-		else if (slide == "right")
-			from_transform = "translateX(100%)";
-		else if (slide == "bottom")
-			from_transform = "translateY(100%)";
-		css.add_raw("@keyframes cskin-in {\n  from { opacity: " + std::string(fade_in ? "0" : "1") +
-			    "; transform: " + from_transform + "; }\n  to { opacity: 1; transform: none; }\n}\n");
-		animations +=
-			"cskin-in " + std::to_string(r.number("fade_in_duration").value_or(200)) + "ms ease-out both";
-	}
-	if (remove_old) {
-		css.add_raw("@keyframes cskin-out {\n  99% { opacity: 0; }\n"
-			    "  100% { opacity: 0; max-height: 0; margin: 0; padding: 0; overflow: hidden; }\n}\n");
-		if (!animations.empty())
-			animations += ", ";
-		animations += "cskin-out " + std::to_string(r.number("fade_out_duration").value_or(200)) +
-			      "ms ease-in " + std::to_string(r.number("remove_after").value_or(30)) + "s forwards";
-	}
-	css.add(hosts, "animation", animations);
+	write_animation(
+		css, r,
+		join_selectors({std::string(TEXT), std::string(PAID), std::string(MEMBERSHIP), std::string(STICKER)}));
 }
 
 } // namespace
 
-std::string css_string(std::string_view text)
-{
-	std::string out = "\"";
-	for (const char ch : text) {
-		const unsigned char c = static_cast<unsigned char>(ch);
-		if (c < 0x20 || c == 0x7f)
-			continue;
-		if (ch == '"' || ch == '\\')
-			out += '\\';
-		out += ch;
-	}
-	out += '"';
-	return out;
-}
-
 std::string generate_youtube_css(const StyleValues &values)
 {
-	const Reader r(values);
+	const Reader r(youtube_sections(), values);
 	CssWriter css;
 	write_font(css, r);
 	write_layout(css, r);
@@ -442,7 +253,7 @@ std::string generate_youtube_css(const StyleValues &values)
 	write_outline(css, r);
 	write_message_background(css, r);
 	write_paid(css, r);
-	write_animation(css, r);
+	write_messages_animation(css, r);
 	return css.str();
 }
 

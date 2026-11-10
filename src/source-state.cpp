@@ -18,6 +18,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include "source-state.h"
 
+#include "core/chat-style.h"
 #include "style-data.h"
 
 namespace cskin {
@@ -29,8 +30,6 @@ constexpr const char *TARGET_KEY = "target";
 constexpr const char *HAS_PREVIOUS_KEY = "has_previous";
 constexpr const char *PREVIOUS_CSS_KEY = "previous_css";
 constexpr const char *APPLIED_CSS_KEY = "applied_css";
-
-constexpr const char *YOUTUBE_KEY = "youtube";
 
 // private settings の中の状態のオブジェクトを読み書きする。無ければ作る
 template<typename Fn> void edit_state(obs_source_t *source, Fn &&fn)
@@ -95,26 +94,33 @@ void clear_apply_record(obs_source_t *source)
 	});
 }
 
-core::StyleValues load_youtube_style(obs_source_t *source)
+core::StyleValues load_style(obs_source_t *source, core::ChatTarget target)
 {
+	const auto *sections = core::sections_for(target);
+	if (!sections)
+		return {};
+	const std::string key(core::target_to_string(target));
 	obs_data_t *priv = obs_source_get_private_settings(source);
 	obs_data_t *state = obs_data_get_obj(priv, STATE_KEY);
-	obs_data_t *youtube = state ? obs_data_get_obj(state, YOUTUBE_KEY) : nullptr;
-	const core::StyleValues values = style_from_data(youtube, core::youtube_sections());
-	if (youtube)
-		obs_data_release(youtube);
+	obs_data_t *style = state ? obs_data_get_obj(state, key.c_str()) : nullptr;
+	const core::StyleValues values = style_from_data(style, *sections);
+	if (style)
+		obs_data_release(style);
 	if (state)
 		obs_data_release(state);
 	obs_data_release(priv);
 	return values;
 }
 
-void save_youtube_style(obs_source_t *source, const core::StyleValues &values)
+void save_style(obs_source_t *source, core::ChatTarget target, const core::StyleValues &values)
 {
+	if (!core::sections_for(target))
+		return;
+	const std::string key(core::target_to_string(target));
 	edit_state(source, [&](obs_data_t *state) {
-		obs_data_t *youtube = style_to_data(values);
-		obs_data_set_obj(state, YOUTUBE_KEY, youtube);
-		obs_data_release(youtube);
+		obs_data_t *style = style_to_data(values);
+		obs_data_set_obj(state, key.c_str(), style);
+		obs_data_release(style);
 	});
 }
 

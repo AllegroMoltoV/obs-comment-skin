@@ -1,0 +1,58 @@
+<!doctype html>
+<!--
+  コメント欄の着せ替え / Comment Skin のドックに表示する、Twitch のチャットの見本。
+  生成した CSS を試せるよう、Twitch のポップアウトのチャットと同じクラス名と data 属性で組んでいる。
+  土台の見た目は本プラグインのために書いたもので、Twitch の CSS は使っていない。
+  種別のバッジは、通信しないよう data: の画像にし、alt で種別を表す。
+  外部の資源を読み込まないよう、CSP ですべての通信を禁じている。
+  #item-scroller と #items は、プレビューで上端の見切れを隠す処理が使う。
+-->
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:">
+<title>Comment Skin preview</title>
+<style>
+  /* 透明な部分が分かるよう、背景を市松模様にする */
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  body { background: repeating-conic-gradient(#cccccc 0 25%, #ffffff 0 50%) 0 0 / 16px 16px; font-family: Inter, Roboto, Arial, sans-serif; }
+  .stream-chat { display: flex; flex-direction: column; height: 100%; }
+  .stream-chat-header { display: flex; align-items: center; justify-content: center; flex: none; height: 40px; background-color: #18181b; border-bottom: 1px solid #2f2f35; color: #efeff1; font-size: 13px; font-weight: 600; }
+  .chat-room { display: flex; flex-direction: column; flex: 1; min-height: 0; background-color: #18181b; color: #efeff1; }
+  .chat-room__content { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+  #item-scroller { flex: 1; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; padding: 8px 0; }
+  [role="log"] > div { padding: 0; }
+  .chat-line__message { padding: 5px 20px; font-size: 14px; line-height: 22px; }
+  .chat-line__status { padding: 5px 20px; font-size: 13px; color: #adadb8; }
+  .chat-line__username-container { display: inline; }
+  img.chat-badge { width: 18px; height: 18px; margin-right: 3px; vertical-align: -4px; border-radius: 2px; }
+  .chat-author__display-name { font-weight: 700; }
+  [data-test-selector="user-notice-line"] { margin: 4px 0; padding: 6px 16px; border-left: 4px solid #9147ff; font-size: 13px; color: #efeff1; }
+  [data-test-selector="user-notice-line"] .chat-line__message { padding: 4px 0 0; }
+  .chat-input { flex: none; height: 96px; padding: 10px; box-sizing: border-box; }
+  .chat-input div { height: 40px; border-radius: 4px; background-color: #2f2f35; color: #adadb8; font-size: 13px; line-height: 40px; padding: 0 10px; }
+</style>
+<style id="cskin-generated"></style>
+</head>
+<body>
+<div class="stream-chat">
+  <div class="stream-chat-header" role="region">チャット</div>
+  <section class="chat-room" data-a-target="chat-theme-dark">
+    <div class="chat-room__content">
+      <div id="item-scroller">
+        <div id="items" class="chat-scrollable-area__message-container" role="log">
+          <div><div class="chat-line__status" data-a-target="chat-welcome-message"><span>チャットルームにようこそ!</span></div></div>
+          <div><div class="chat-line__message" data-a-target="chat-line-message"><div class="chat-line__message-container"><div class="chat-line__no-background"><div class="chat-line__username-container"><span></span><span class="chat-line__username"><span><span class="chat-author__display-name" data-a-target="chat-message-username" style="color: rgb(30, 144, 255);">Kei</span></span></span></div><span aria-hidden="true">: </span><span data-a-target="chat-line-message-body"><span class="text-fragment" data-a-target="chat-message-text">Hello from overseas! 長いコメントが折り返されたときの見え方も確かめられるように、少し長めに書いています。</span></span></div></div></div></div>
+          <div><div class="chat-line__message" data-a-target="chat-line-message"><div class="chat-line__message-container"><div class="chat-line__no-background"><div class="chat-line__username-container"><span></span><span class="chat-line__username"><span><span class="chat-author__display-name" data-a-target="chat-message-username" style="color: rgb(255, 69, 0);">あおぞら</span></span></span></div><span aria-hidden="true">: </span><span data-a-target="chat-line-message-body"><span class="text-fragment" data-a-target="chat-message-text">こんばんは!今日も楽しみにしていました</span></span></div></div></div></div>
+          <div><div data-test-selector="user-notice-line"><div>そらまめ さんが 6 か月間サブスクしました!</div><div class="chat-line__message" data-a-target="chat-line-message"><div class="chat-line__message-container"><div class="chat-line__no-background"><div class="chat-line__username-container"><span><img class="chat-badge" data-a-target="chat-badge" alt="サブスクライバーバッジ" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18'%3E%3Crect width='18' height='18' rx='3' fill='%239147ff'/%3E%3C/svg%3E"></span><span class="chat-line__username"><span><span class="chat-author__display-name" data-a-target="chat-message-username" style="color: rgb(218, 165, 32);">そらまめ</span></span></span></div><span aria-hidden="true">: </span><span data-a-target="chat-line-message-body"><span class="text-fragment" data-a-target="chat-message-text">いつも楽しく見ています</span></span></div></div></div></div></div>
+          <div><div class="chat-line__message" data-a-target="chat-line-message"><div class="chat-line__message-container"><div class="chat-line__no-background"><div class="chat-line__username-container"><span><img class="chat-badge" data-a-target="chat-badge" alt="VIPバッジ" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18'%3E%3Cpath d='M9 1l8 7-8 9-8-9z' fill='%23e005b9'/%3E%3C/svg%3E"></span><span class="chat-line__username"><span><span class="chat-author__display-name" data-a-target="chat-message-username" style="color: rgb(0, 255, 127);">みどりの森</span></span></span></div><span aria-hidden="true">: </span><span data-a-target="chat-line-message-body"><span class="text-fragment" data-a-target="chat-message-text">VIP になりました。応援しています</span></span></div></div></div></div>
+          <div><div class="chat-line__message" data-a-target="chat-line-message"><div class="chat-line__message-container"><div class="chat-line__no-background"><div class="chat-line__username-container"><span><img class="chat-badge" data-a-target="chat-badge" alt="モデレーターバッジ" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18'%3E%3Crect width='18' height='18' rx='3' fill='%2300ad03'/%3E%3C/svg%3E"></span><span class="chat-line__username"><span><span class="chat-author__display-name" data-a-target="chat-message-username" style="color: rgb(138, 43, 226);">しずく</span></span></span></div><span aria-hidden="true">: </span><span data-a-target="chat-line-message-body"><span class="text-fragment" data-a-target="chat-message-text">リクエストはこちらのコメントで受け付けています</span></span></div></div></div></div>
+          <div><div class="chat-line__message" data-a-target="chat-line-message"><div class="chat-line__message-container"><div class="chat-line__no-background"><div class="chat-line__username-container"><span><img class="chat-badge" data-a-target="chat-badge" alt="配信者バッジ" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18'%3E%3Crect width='18' height='18' rx='3' fill='%23e91916'/%3E%3C/svg%3E"></span><span class="chat-line__username"><span><span class="chat-author__display-name" data-a-target="chat-message-username" style="color: rgb(255, 127, 80);">配信者</span></span></span></div><span aria-hidden="true">: </span><span data-a-target="chat-line-message-body"><span class="text-fragment" data-a-target="chat-message-text">みなさんありがとう!始めていきます</span></span></div></div></div></div>
+        </div>
+      </div>
+      <div class="chat-input"><div>メッセージを送信</div></div>
+    </div>
+  </section>
+</div>
+</body>
+</html>

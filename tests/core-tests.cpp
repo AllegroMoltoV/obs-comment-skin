@@ -19,8 +19,10 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 // OBS に依存しない処理の単体テスト。失敗した検査を標準エラーに書き、終了コード 1 で終わる
 
 #include "core/chat-target.h"
+#include "core/css-builder.h"
 #include "core/managed-css.h"
 #include "core/preview-script.h"
+#include "core/twitch-style.h"
 #include "core/youtube-style.h"
 
 #include <iostream>
@@ -298,6 +300,76 @@ void test_youtube_css_hide_input_and_engagement()
 	CHECK(!contains(css, "product-picker"));
 }
 
+void test_twitch_css_empty_and_resources()
+{
+	CHECK(generate_twitch_css(StyleValues{}).empty());
+	// すべての項目に値を入れても、外部の資源を読み込む記述を生成しない
+	StyleValues values;
+	for (const auto &section : twitch_sections()) {
+		for (const auto &item : section.items) {
+			const std::string key(item.key);
+			switch (item.kind) {
+			case ItemKind::Number:
+			case ItemKind::Opacity:
+				values.numbers[key] = item.max;
+				break;
+			case ItemKind::Toggle:
+				values.numbers[key] = item.default_value.value_or(0) == 0 ? 1 : 0;
+				break;
+			case ItemKind::Color:
+				values.colors[key] = Rgb{10, 20, 30};
+				break;
+			case ItemKind::Choice:
+				values.texts[key] = std::string(item.choices.back());
+				break;
+			case ItemKind::Font:
+				values.texts[key] = "Evil\"; } @import url(http://example.com/x.css); a {\"";
+				break;
+			}
+		}
+	}
+	const std::string css = generate_twitch_css(values);
+	CHECK(!css.empty());
+	CHECK(!contains(css, "@import"));
+	CHECK(!contains(css, "url("));
+}
+
+void test_twitch_css_names()
+{
+	StyleValues values;
+	values.colors["name_color"] = Rgb{1, 1, 1};
+	// 利用者ごとの色を使う間は、全体の名前の色は当てない
+	CHECK(!contains(generate_twitch_css(values), "rgb(1, 1, 1)"));
+	values.numbers["use_user_color"] = 0;
+	values.colors["subscriber_name_color"] = Rgb{2, 2, 2};
+	values.colors["broadcaster_name_color"] = Rgb{3, 3, 3};
+	const std::string css = generate_twitch_css(values);
+	CHECK(contains(
+		css,
+		".chat-line__message .chat-author__display-name,\n.chat-line__message .chat-author__intl-login {\n  color: rgb(1, 1, 1)"));
+	CHECK(contains(css, "img.chat-badge[alt*=\"サブスクライバー\"]"));
+	CHECK(contains(css, "img.chat-badge[src*=\"5527c58c-fb7d-422d-b71b-f309dcb85cc1\"]"));
+	// 種別ごとの色は全体の色より後に書き、配信者を最も後にする
+	CHECK(css.find("rgb(1, 1, 1)") < css.find("rgb(2, 2, 2)"));
+	CHECK(css.find("rgb(2, 2, 2)") < css.find("rgb(3, 3, 3)"));
+}
+
+void test_twitch_css_layout()
+{
+	StyleValues values;
+	values.numbers["header_visible"] = 0;
+	values.numbers["input_panel_visible"] = 0;
+	values.numbers["engagement_visible"] = 0;
+	values.numbers["background_opacity"] = 0;
+	const std::string css = generate_twitch_css(values);
+	CHECK(contains(css, ".stream-chat-header {\n  display: none"));
+	CHECK(contains(css, ".chat-input {\n  display: none"));
+	CHECK(contains(css, "[data-a-target=\"chat-welcome-message\"] {\n  display: none"));
+	CHECK(contains(css, "background-color: rgba(24, 24, 27, 0)"));
+	// 広告の iframe は隠さない
+	CHECK(!contains(css, "iframe"));
+}
+
 void test_youtube_css_opacity_without_color()
 {
 	// 色を選ばずに不透明度だけを 0 にすると、YouTube の既定の色で透明にする
@@ -441,6 +513,9 @@ int main()
 	test_item_effective();
 	test_youtube_css_opacity_without_color();
 	test_youtube_css_hide_input_and_engagement();
+	test_twitch_css_empty_and_resources();
+	test_twitch_css_names();
+	test_twitch_css_layout();
 	test_youtube_css_owner_highlight();
 	test_youtube_css_never_loads_resources();
 	test_sanitize();

@@ -19,7 +19,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include "comment-skin-dock.h"
 
 #include "core/managed-css.h"
-#include "core/youtube-style.h"
+#include "core/chat-style.h"
 #include "create-source-dialog.h"
 #include "preset-store.h"
 #include "preview-panel.h"
@@ -131,10 +131,10 @@ CommentSkinDock::CommentSkinDock(QWidget *parent) : QWidget(parent)
 	target_hint_label_->setWordWrap(true);
 
 	// 設定の項目
-	settings_label_ = new QLabel(content);
-	settings_label_->setWordWrap(true);
 	youtube_panel_ = new SettingsPanel(core::youtube_sections(), content);
 	youtube_panel_->setVisible(false);
+	twitch_panel_ = new SettingsPanel(core::twitch_sections(), content);
+	twitch_panel_->setVisible(false);
 	// 見本はブラウザーの部品で、独立したウィンドウとして描かれる。スクロール領域の中では
 	// スクロールバーや表示範囲の外にはみ出して描かれるため、スクロール領域の外の上端に置く
 	preview_ = new PreviewPanel(this);
@@ -199,9 +199,9 @@ CommentSkinDock::CommentSkinDock(QWidget *parent) : QWidget(parent)
 	layout->addWidget(target_label);
 	layout->addWidget(target_combo_);
 	layout->addWidget(target_hint_label_);
-	layout->addWidget(settings_label_);
 	layout->addWidget(preset_row_);
 	layout->addWidget(youtube_panel_);
+	layout->addWidget(twitch_panel_);
 	layout->addLayout(action_row);
 	layout->addWidget(css_toggle_button_);
 	layout->addWidget(css_view_);
@@ -229,14 +229,16 @@ CommentSkinDock::CommentSkinDock(QWidget *parent) : QWidget(parent)
 	// 横にスクロールさせず、欄が右端で切れないよう、ドックの最小の幅を中身の最小の幅に合わせる。
 	// 非表示の欄と閉じた区画は大きさの計算に入らないため、一時的に表示して求める
 	youtube_panel_->setVisible(true);
+	twitch_panel_->setVisible(true);
 	preset_row_->setVisible(true);
-	settings_label_->setVisible(true);
-	const int panel_width = youtube_panel_->expanded_minimum_size().width() + layout->contentsMargins().left() +
-				layout->contentsMargins().right();
+	const int margins = layout->contentsMargins().left() + layout->contentsMargins().right();
+	const int panel_width = std::max(youtube_panel_->expanded_minimum_size().width(),
+					 twitch_panel_->expanded_minimum_size().width()) +
+				margins;
 	const int content_width = std::max(content->minimumSizeHint().width(), panel_width);
 	youtube_panel_->setVisible(false);
+	twitch_panel_->setVisible(false);
 	preset_row_->setVisible(false);
-	settings_label_->setVisible(false);
 	setMinimumWidth(content_width + scroll->verticalScrollBar()->sizeHint().width());
 	obs_log(LOG_INFO, "dock minimum width: %d", minimumWidth());
 
@@ -248,6 +250,7 @@ CommentSkinDock::CommentSkinDock(QWidget *parent) : QWidget(parent)
 	connect(undo_button_, &QPushButton::clicked, this, &CommentSkinDock::on_undo);
 	connect(copy_css_button_, &QPushButton::clicked, this, &CommentSkinDock::on_copy_css);
 	connect(youtube_panel_, &SettingsPanel::changed, this, &CommentSkinDock::on_settings_changed);
+	connect(twitch_panel_, &SettingsPanel::changed, this, &CommentSkinDock::on_settings_changed);
 	connect(preset_load_button_, &QPushButton::clicked, this, &CommentSkinDock::on_preset_load);
 	connect(preset_save_button_, &QPushButton::clicked, this, &CommentSkinDock::on_preset_save);
 	connect(preset_delete_button_, &QPushButton::clicked, this, &CommentSkinDock::on_preset_delete);
@@ -305,11 +308,24 @@ core::ChatTarget CommentSkinDock::current_target() const
 	return core::target_from_string(target_combo_->currentData().toString().toStdString());
 }
 
+SettingsPanel *CommentSkinDock::panel_for(core::ChatTarget target) const
+{
+	switch (target) {
+	case core::ChatTarget::YouTube:
+		return youtube_panel_;
+	case core::ChatTarget::Twitch:
+		return twitch_panel_;
+	case core::ChatTarget::Unknown:
+		break;
+	}
+	return nullptr;
+}
+
 std::string CommentSkinDock::generated_css() const
 {
-	if (current_target() == core::ChatTarget::YouTube)
-		return core::generate_youtube_css(youtube_panel_->values());
-	return {};
+	const core::ChatTarget target = current_target();
+	SettingsPanel *panel = panel_for(target);
+	return panel ? core::generate_css(target, panel->values()) : std::string();
 }
 
 void CommentSkinDock::update_view()
@@ -321,9 +337,8 @@ void CommentSkinDock::update_view()
 		target_combo_->setCurrentIndex(-1);
 		target_combo_->setEnabled(false);
 		target_hint_label_->clear();
-		settings_label_->clear();
-		settings_label_->setVisible(false);
 		youtube_panel_->setVisible(false);
+		twitch_panel_->setVisible(false);
 		preview_->setVisible(false);
 		preview_label_->setVisible(false);
 		preset_row_->setVisible(false);
@@ -343,17 +358,18 @@ void CommentSkinDock::update_view()
 		else
 			target_hint_label_->setText(text("ChatTarget.Undetected"));
 
-		const bool youtube = target == core::ChatTarget::YouTube;
-		if (youtube)
-			youtube_panel_->set_values(load_youtube_style(source));
-		youtube_panel_->setVisible(youtube);
-		preview_->setVisible(youtube);
-		preview_label_->setVisible(youtube);
-		preset_row_->setVisible(youtube);
-		if (youtube)
+		SettingsPanel *panel = panel_for(target);
+		if (panel)
+			panel->set_values(load_style(source, target));
+		youtube_panel_->setVisible(panel == youtube_panel_);
+		twitch_panel_->setVisible(panel == twitch_panel_);
+		preview_->setVisible(panel != nullptr);
+		preview_label_->setVisible(panel != nullptr);
+		preset_row_->setVisible(panel != nullptr);
+		if (panel) {
+			preview_->set_target(target);
 			refresh_presets(preset_combo_->currentText());
-		settings_label_->setVisible(target == core::ChatTarget::Twitch);
-		settings_label_->setText(text("Settings.TwitchUnsupported"));
+		}
 
 		undo_button_->setEnabled(state.has_previous);
 		obs_source_release(source);
@@ -387,7 +403,7 @@ void CommentSkinDock::refresh_presets(const QString &select_name)
 void CommentSkinDock::on_preset_save()
 {
 	const core::ChatTarget target = current_target();
-	if (target != core::ChatTarget::YouTube)
+	if (!panel_for(target))
 		return;
 	bool ok = false;
 	const QString name = QInputDialog::getText(this, text("Preset.SaveTitle"), text("Preset.SaveName"),
@@ -404,9 +420,9 @@ void CommentSkinDock::on_preset_save()
 		if (QMessageBox::question(this, text("Preset.SaveTitle"), text("Preset.Overwrite").arg(name)) !=
 		    QMessageBox::Yes)
 			return;
-		it->values = youtube_panel_->values();
+		it->values = panel_for(target)->values();
 	} else {
-		presets.push_back(Preset{key, target, youtube_panel_->values()});
+		presets.push_back(Preset{key, target, panel_for(target)->values()});
 	}
 	if (!save_presets(presets)) {
 		set_status(text("Preset.SaveFailed"));
@@ -426,7 +442,8 @@ void CommentSkinDock::on_preset_load()
 		if (preset.target != target || preset.name != name.toStdString())
 			continue;
 		// 欄に写したうえで、設定を変えたときと同じ経路で保存と自動の適用を行う
-		youtube_panel_->set_values(preset.values);
+		if (SettingsPanel *panel = panel_for(target))
+			panel->set_values(preset.values);
 		on_settings_changed();
 		set_status(text("Preset.Loaded").arg(name));
 		return;
@@ -468,13 +485,14 @@ void CommentSkinDock::on_settings_changed()
 	obs_source_t *source = selected_source();
 	if (!source)
 		return;
-	const bool youtube = current_target() == core::ChatTarget::YouTube;
-	if (youtube)
-		save_youtube_style(source, youtube_panel_->values());
+	const core::ChatTarget target = current_target();
+	SettingsPanel *panel = panel_for(target);
+	if (panel)
+		save_style(source, target, panel->values());
 	obs_source_release(source);
 	update_css_view();
 
-	if (youtube) {
+	if (panel) {
 		pending_uuid_ = source_combo_->currentData().toString();
 		apply_timer_->start();
 	}
@@ -533,13 +551,13 @@ void CommentSkinDock::apply_pending()
 	const core::ChatTarget target = state.chosen_target != core::ChatTarget::Unknown
 						? state.chosen_target
 						: core::detect_target(get_source_url(source));
-	if (target != core::ChatTarget::YouTube) {
+	if (!core::sections_for(target)) {
 		obs_source_release(source);
 		return;
 	}
 
 	const std::string current = get_source_css(source);
-	const auto updated = core::replace_block(current, core::generate_youtube_css(load_youtube_style(source)));
+	const auto updated = core::replace_block(current, core::generate_css(target, load_style(source, target)));
 	if (!updated) {
 		obs_source_release(source);
 		set_status(text("Apply.BrokenMarkers"));
@@ -600,7 +618,9 @@ void CommentSkinDock::on_undo()
 	}
 
 	clear_apply_record(source);
-	save_youtube_style(source, core::StyleValues{});
+	// 種類を切り替えて設定していた場合も見た目が元に戻るよう、両方の種類の設定を既定に戻す
+	save_style(source, core::ChatTarget::YouTube, core::StyleValues{});
+	save_style(source, core::ChatTarget::Twitch, core::StyleValues{});
 	set_source_css(source, state.previous_css);
 	obs_log(LOG_INFO, "restored previous CSS of browser source '%s'", name.toUtf8().constData());
 	obs_source_release(source);

@@ -95,18 +95,38 @@ void PreviewPanel::wait_for_browser()
 	}
 }
 
+std::string PreviewPanel::page_url() const
+{
+	const char *file = target_ == core::ChatTarget::Twitch ? "preview/twitch.html" : "preview/youtube.html";
+	char *path = obs_module_file(file);
+	if (!path)
+		return {};
+	// obs_module_file() はポータブル版などで相対パスを返すため、絶対パスにしてから URL にする
+	const QString absolute = QFileInfo(QString::fromUtf8(path)).absoluteFilePath();
+	bfree(path);
+	return QUrl::fromLocalFile(absolute).toString().toStdString();
+}
+
+void PreviewPanel::set_target(core::ChatTarget target)
+{
+	if (target == target_)
+		return;
+	target_ = target;
+	if (!browser_ || shut_down_)
+		return;
+	const std::string url = page_url();
+	if (!url.empty())
+		browser_->setURL(url);
+}
+
 void PreviewPanel::create_browser()
 {
-	char *path = obs_module_file("preview/youtube.html");
-	if (!path) {
+	const std::string url = page_url();
+	if (url.empty()) {
 		obs_log(LOG_WARNING, "preview disabled: preview page not found");
 		message_label_->setText(text("Preview.Unavailable"));
 		return;
 	}
-	// obs_module_file() はポータブル版などで相対パスを返すため、絶対パスにしてから URL にする
-	const QString absolute = QFileInfo(QString::fromUtf8(path)).absoluteFilePath();
-	const std::string url = QUrl::fromLocalFile(absolute).toString().toStdString();
-	bfree(path);
 
 	browser_ = cef_->create_widget(this, url);
 	if (!browser_) {

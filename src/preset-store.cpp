@@ -18,6 +18,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include "preset-store.h"
 
+#include "core/chat-style.h"
 #include "style-data.h"
 
 #include <obs-module.h>
@@ -33,13 +34,6 @@ constexpr const char *PRESETS_KEY = "presets";
 constexpr const char *NAME_KEY = "name";
 constexpr const char *TARGET_KEY = "target";
 constexpr const char *VALUES_KEY = "values";
-
-const std::vector<core::SectionDef> *sections_for(core::ChatTarget target)
-{
-	if (target == core::ChatTarget::YouTube)
-		return &core::youtube_sections();
-	return nullptr;
-}
 
 } // namespace
 
@@ -61,7 +55,7 @@ std::vector<Preset> load_presets()
 		Preset preset;
 		preset.name = obs_data_get_string(item, NAME_KEY);
 		preset.target = core::target_from_string(obs_data_get_string(item, TARGET_KEY));
-		const auto *sections = sections_for(preset.target);
+		const auto *sections = core::sections_for(preset.target);
 		obs_data_t *values = obs_data_get_obj(item, VALUES_KEY);
 		if (sections)
 			preset.values = style_from_data(values, *sections);

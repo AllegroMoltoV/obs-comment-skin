@@ -25,9 +25,6 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 namespace cskin::core {
 
-// CSS の二重引用符の文字列にする。書体の名前を font-family に入れるときに使う
-std::string css_string(std::string_view text);
-
 // YouTube のチャットの CSS を生成する。値は youtube_sections() の表にしたがう
 std::string generate_youtube_css(const StyleValues &values);
 
