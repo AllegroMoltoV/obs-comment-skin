@@ -24,6 +24,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <QComboBox>
 #include <QFormLayout>
 #include <QPushButton>
+#include <QSlider>
 #include <QSpinBox>
 #include <QToolButton>
 #include <QWidget>
@@ -72,6 +73,25 @@ private:
 	QPushButton *button_{nullptr};
 	QToolButton *clear_button_{nullptr};
 	std::optional<core::Rgb> color_;
+};
+
+// 数値をスライダーで選ぶ欄。右に今の値を示す数値の欄を置き、直接の入力もできるようにする
+class SliderField : public QWidget {
+	Q_OBJECT
+
+public:
+	SliderField(int min, int max, const QString &suffix, const QString &special_text, const QString &name,
+		    QWidget *parent = nullptr);
+
+	int value() const { return spin_->value(); }
+	void setValue(int value);
+
+signals:
+	void valueChanged(int value);
+
+private:
+	QSlider *slider_{nullptr};
+	QSpinBox *spin_{nullptr};
 };
 
 // 表の項目から入力欄を作り、値を読み書きする

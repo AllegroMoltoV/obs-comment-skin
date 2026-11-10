@@ -127,6 +127,55 @@ void ColorField::update_view()
 	clear_button_->setEnabled(color_.has_value());
 }
 
+SliderField::SliderField(int min, int max, const QString &suffix, const QString &special_text, const QString &name,
+			 QWidget *parent)
+	: QWidget(parent)
+{
+	slider_ = new QSlider(Qt::Horizontal, this);
+	slider_->setRange(min, max);
+	slider_->setAccessibleName(name);
+	// 狭いドックでもつまみを動かせる幅を残す。足りないときは項目名が上の行に折り返される
+	slider_->setMinimumWidth(100);
+	spin_ = new QSpinBox(this);
+	spin_->setRange(min, max);
+	spin_->setSuffix(suffix);
+	if (!special_text.isEmpty())
+		spin_->setSpecialValueText(special_text);
+	spin_->setAccessibleName(name);
+	spin_->setButtonSymbols(QAbstractSpinBox::NoButtons);
+	spin_->setAlignment(Qt::AlignRight);
+	spin_->setMinimumWidth(64);
+
+	auto *layout = new QHBoxLayout(this);
+	layout->setContentsMargins(0, 0, 0, 0);
+	layout->addWidget(slider_, 1);
+	layout->addWidget(spin_);
+
+	// スライダーと数値の欄を同じ値にそろえ、利用者の操作で変わったときだけ通知する
+	connect(slider_, &QSlider::valueChanged, this, [this](int v) {
+		if (spin_->value() == v)
+			return;
+		const QSignalBlocker blocker(spin_);
+		spin_->setValue(v);
+		emit valueChanged(v);
+	});
+	connect(spin_, &QSpinBox::valueChanged, this, [this](int v) {
+		if (slider_->value() == v)
+			return;
+		const QSignalBlocker blocker(slider_);
+		slider_->setValue(v);
+		emit valueChanged(v);
+	});
+}
+
+void SliderField::setValue(int value)
+{
+	const QSignalBlocker slider_blocker(slider_);
+	const QSignalBlocker spin_blocker(spin_);
+	slider_->setValue(value);
+	spin_->setValue(value);
+}
+
 SettingsPanel::SettingsPanel(const std::vector<core::SectionDef> &sections, QWidget *parent)
 	: QWidget(parent),
 	  sections_(sections)
@@ -186,28 +235,28 @@ QWidget *SettingsPanel::create_field(const core::ItemDef &item)
 	switch (item.kind) {
 	case core::ItemKind::Number:
 	case core::ItemKind::Opacity: {
-		auto *spin = new QSpinBox(this);
 		// 既定値の無い項目は、最小値の 1 つ下を「既定」として表示する
 		const bool has_special = !item.default_value.has_value();
 		const int special = item.min - 1;
-		spin->setRange(has_special ? special : item.min, item.max);
-		if (has_special)
-			spin->setSpecialValueText(locale_text("Field.Default"));
-		if (!item.unit.empty())
-			spin->setSuffix(QStringLiteral(" ") + QString::fromUtf8(std::string(item.unit).c_str()));
+		const QString suffix =
+			item.unit.empty() ? QString()
+					  : QStringLiteral(" ") + QString::fromUtf8(std::string(item.unit).c_str());
+		auto *slider = new SliderField(has_special ? special : item.min, item.max, suffix,
+					       has_special ? locale_text("Field.Default") : QString(),
+					       locale_text(item.label_key), this);
 		const int initial = has_special ? special : *item.default_value;
-		spin->setValue(initial);
-		field.read = [spin, key, initial](core::StyleValues &values) {
-			if (spin->value() != initial)
-				values.numbers[key] = spin->value();
+		slider->setValue(initial);
+		field.read = [slider, key, initial](core::StyleValues &values) {
+			if (slider->value() != initial)
+				values.numbers[key] = slider->value();
 		};
-		field.write = [spin, key, initial](const core::StyleValues &values) {
+		field.write = [slider, key, initial](const core::StyleValues &values) {
 			const auto it = values.numbers.find(key);
-			spin->setValue(it != values.numbers.end() ? it->second : initial);
+			slider->setValue(it != values.numbers.end() ? it->second : initial);
 		};
-		field.blockers.push_back(spin);
-		connect(spin, &QSpinBox::valueChanged, this, &SettingsPanel::changed);
-		widget = spin;
+		field.blockers.push_back(slider);
+		connect(slider, &SliderField::valueChanged, this, &SettingsPanel::changed);
+		widget = slider;
 		break;
 	}
 	case core::ItemKind::Toggle: {

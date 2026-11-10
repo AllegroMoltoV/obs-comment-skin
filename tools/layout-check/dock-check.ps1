@@ -40,7 +40,7 @@ $vbar = $scrollBars | Where-Object {
 } | Sort-Object { $_.Current.BoundingRectangle.Height } -Descending | Select-Object -First 1
 
 $dockRect = $dock.Current.BoundingRectangle
-$types = @($CT::Button, $CT::ComboBox, $CT::Spinner, $CT::CheckBox, $CT::Text, $CT::Edit)
+$types = @($CT::Button, $CT::ComboBox, $CT::Spinner, $CT::CheckBox, $CT::Text, $CT::Edit, $CT::Slider)
 $issues = New-Object System.Collections.Generic.List[string]
 $checked = @{}
 
@@ -70,7 +70,7 @@ function Test-Viewport {
         if ($c.Rect.Right -gt $view.Right + 1) {
             $issues.Add("beyond-right-edge|$($c.Type)|$($c.Name)|right=$([int]$c.Rect.Right) view=$([int]$view.Right)")
         }
-        if ($c.Type -in @('ControlType.ComboBox', 'ControlType.Spinner', 'ControlType.Edit') -and $c.Rect.Width -lt 40) {
+        if ($c.Type -in @('ControlType.ComboBox', 'ControlType.Spinner', 'ControlType.Edit', 'ControlType.Slider') -and $c.Rect.Width -lt 40) {
             $issues.Add("too-narrow|$($c.Type)|$($c.Name)|width=$([int]$c.Rect.Width)")
         }
     }
