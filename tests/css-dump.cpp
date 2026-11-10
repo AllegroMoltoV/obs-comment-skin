@@ -17,12 +17,11 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 */
 
 // 見た目の崩れの検査で当てる CSS を書き出す。
-// 使い方: comment-skin-css-dump <max|min>
-// 数値の項目をすべて最大または最小にし、文字の縁取り、時刻、名前の後の「:」を有効にする。
-// アニメーションは、計測の途中で要素が動かないよう無効のままにする
+// 使い方: comment-skin-css-dump <max|min> [youtube|twitch]
+// 数値の項目をすべて最大または最小にし、文字の縁取り、時刻、名前の後の「:」、メッセージの背景を有効にする。
+// アニメーションは、計測の途中で要素が動かないよう無効のままにする。種類を省くと youtube にする
 
-#include "core/style-schema.h"
-#include "core/youtube-style.h"
+#include "core/chat-style.h"
 
 #include <iostream>
 #include <string>
@@ -32,14 +31,16 @@ using namespace cskin::core;
 int main(int argc, char **argv)
 {
 	const std::string profile = argc > 1 ? argv[1] : "";
-	if (profile != "max" && profile != "min") {
-		std::cerr << "usage: comment-skin-css-dump <max|min>\n";
+	const ChatTarget target = argc > 2 ? target_from_string(argv[2]) : ChatTarget::YouTube;
+	const auto *sections = sections_for(target);
+	if ((profile != "max" && profile != "min") || !sections) {
+		std::cerr << "usage: comment-skin-css-dump <max|min> [youtube|twitch]\n";
 		return 2;
 	}
 	const bool use_max = profile == "max";
 
 	StyleValues values;
-	for (const auto &section : youtube_sections()) {
+	for (const auto &section : *sections) {
 		for (const auto &item : section.items) {
 			const std::string key(item.key);
 			if (item.kind == ItemKind::Number) {
@@ -57,6 +58,6 @@ int main(int argc, char **argv)
 	values.colors["message_background_color"] = Rgb{40, 40, 40};
 	values.numbers["message_background_opacity"] = 80;
 
-	std::cout << generate_youtube_css(values);
+	std::cout << generate_css(target, values);
 	return 0;
 }

@@ -18,9 +18,12 @@ const pageScript = (cssText) => `(async () => {
 	document.head.appendChild(style);
 	await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 
+	// YouTube と Twitch のメッセージの要素と、その中の文字の要素
 	const HOSTS = ['yt-live-chat-text-message-renderer', 'yt-live-chat-paid-message-renderer',
-		'yt-live-chat-membership-item-renderer', 'yt-live-chat-paid-sticker-renderer'];
-	const TEXT_PARTS = ['#message', '#author-name', '#timestamp', '#purchase-amount', '#header-subtext'];
+		'yt-live-chat-membership-item-renderer', 'yt-live-chat-paid-sticker-renderer',
+		'.chat-line__message', '[data-test-selector="user-notice-line"]'];
+	const TEXT_PARTS = ['#message', '#author-name', '#timestamp', '#purchase-amount', '#header-subtext',
+		'[data-a-target="chat-line-message-body"]', '.chat-author__display-name'];
 	const visible = (e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(e).display !== 'none'; };
 	const px = (v) => parseFloat(v);
 	const issues = [];

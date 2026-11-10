@@ -25,7 +25,11 @@ const expression = `(async () => {
 		const bg = s.backgroundColor;
 		const transparent = bg === 'transparent' || /rgba\\(.*,\\s*0\\)$/.test(bg);
 		if (transparent && s.backgroundImage === 'none') continue;
-		const key = e.tagName.toLowerCase() + (e.id ? '#' + e.id : '') + ' ' + bg + (s.backgroundImage !== 'none' ? ' image' : '');
+		// Twitch の要素には id が無いため、生成された名前ではないクラスと data-a-target で見分ける
+		const named = [...e.classList].filter((c) => !/^(Layout|InjectLayout|Sc[A-Za-z]*|CoreText)-sc-|^[A-Za-z]{5,6}$/.test(c));
+		const target = e.getAttribute('data-a-target');
+		const key = e.tagName.toLowerCase() + (e.id ? '#' + e.id : '') + (named.length ? '.' + named.join('.') : '') +
+			(target ? '[' + target + ']' : '') + ' ' + bg + (s.backgroundImage !== 'none' ? ' image' : '');
 		found[key] = (found[key] ?? 0) + 1;
 	}
 	style.remove();
