@@ -110,6 +110,10 @@ void write_layout(CssWriter &css, const Reader &r)
 	}
 	if (!r.toggle("header_visible"))
 		css.add(".stream-chat-header", "display", "none");
+	// ランキングのクラス名の末尾は生成された文字列のため、前方の一致で探す。
+	// 同じ場所に出るほかの要素を巻き込まないよう、ランキングだけを包む要素を隠す
+	if (!r.toggle("leaderboard_visible"))
+		css.add(".tw-transition-group:has([class*=\"channelLeaderboardHeader\"])", "display", "none");
 	if (!r.toggle("input_panel_visible"))
 		css.add(".chat-input", "display", "none");
 	if (!r.toggle("engagement_visible"))

@@ -258,6 +258,7 @@ const std::vector<SectionDef> &twitch_sections()
 		{"Section.Layout",
 		 {
 			 toggle("header_visible", "Item.HeaderVisible", true),
+			 toggle("leaderboard_visible", "Item.LeaderboardVisible", true),
 			 toggle("input_panel_visible", "Item.TwitchInputVisible", true),
 			 toggle("engagement_visible", "Item.TwitchWelcomeVisible", true),
 		 }},

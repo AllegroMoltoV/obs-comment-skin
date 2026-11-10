@@ -358,11 +358,14 @@ void test_twitch_css_layout()
 {
 	StyleValues values;
 	values.numbers["header_visible"] = 0;
+	values.numbers["leaderboard_visible"] = 0;
 	values.numbers["input_panel_visible"] = 0;
 	values.numbers["engagement_visible"] = 0;
 	values.numbers["background_opacity"] = 0;
 	const std::string css = generate_twitch_css(values);
 	CHECK(contains(css, ".stream-chat-header {\n  display: none"));
+	// ランキングだけを包む要素を隠し、同じ場所に出るほかの要素は巻き込まない
+	CHECK(contains(css, ".tw-transition-group:has([class*=\"channelLeaderboardHeader\"]) {\n  display: none"));
 	CHECK(contains(css, ".chat-input {\n  display: none"));
 	CHECK(contains(css, "[data-a-target=\"chat-welcome-message\"] {\n  display: none"));
 	CHECK(contains(css, "background-color: rgba(24, 24, 27, 0)"));

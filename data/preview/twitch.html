@@ -6,6 +6,7 @@
   種別のバッジは、通信しないよう data: の画像にし、alt で種別を表す。
   外部の資源を読み込まないよう、CSP ですべての通信を禁じている。
   #item-scroller と #items は、プレビューで上端の見切れを隠す処理が使う。
+  上部のランキングは、生成した CSS のセレクターに一致するよう、実物のクラス名の前方を同じにしている。
 -->
 <html lang="ja">
 <head>
@@ -19,7 +20,11 @@
   .stream-chat { display: flex; flex-direction: column; height: 100%; }
   .stream-chat-header { display: flex; align-items: center; justify-content: center; flex: none; height: 40px; background-color: #18181b; border-bottom: 1px solid #2f2f35; color: #efeff1; font-size: 13px; font-weight: 600; }
   .chat-room { display: flex; flex-direction: column; flex: 1; min-height: 0; background-color: #18181b; color: #efeff1; }
-  .chat-room__content { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+  .chat-room__content { position: relative; display: flex; flex-direction: column; flex: 1; min-height: 0; }
+  /* 上部のランキングは、実物と同じくチャットの行に重ねて置く */
+  .tw-transition-group { position: absolute; top: 0; left: 28px; right: 28px; z-index: 1; }
+  .channelLeaderboardHeaderRotating__users--preview { display: flex; gap: 12px; align-items: center; height: 44px; padding: 0 12px; border-radius: 0 0 6px 6px; background-color: #18181b; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5); color: #efeff1; font-size: 12px; }
+  .channelLeaderboardHeaderRotating__users--preview span::before { content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 4px; border-radius: 50%; background-color: var(--medal); }
   #item-scroller { flex: 1; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; padding: 8px 0; }
   [role="log"] > div { padding: 0; }
   .chat-line__message { padding: 5px 20px; font-size: 14px; line-height: 22px; }
@@ -39,6 +44,7 @@
   <div class="stream-chat-header" role="region">チャット</div>
   <section class="chat-room" data-a-target="chat-theme-dark">
     <div class="chat-room__content">
+      <div class="tw-transition-group"><div class="channelLeaderboardHeaderRotating__users--preview"><span style="--medal: #ffd37a">そらまめ 1,200</span><span style="--medal: #c0c0c0">Kei 800</span><span style="--medal: #cd7f32">しずく 300</span></div></div>
       <div id="item-scroller">
         <div id="items" class="chat-scrollable-area__message-container" role="log">
           <div><div class="chat-line__status" data-a-target="chat-welcome-message"><span>チャットルームにようこそ!</span></div></div>
