@@ -24,6 +24,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <QFontDatabase>
 #include <QHBoxLayout>
 #include <QIcon>
+#include <QLabel>
 #include <QPixmap>
 #include <QVBoxLayout>
 
@@ -138,10 +139,28 @@ SettingsPanel::SettingsPanel(const std::vector<core::SectionDef> &sections, QWid
 		// 項目が多いため、最初の区画だけを開いて表示する
 		auto *box = new CollapsibleSection(locale_text(section.title_key), first, this);
 		first = false;
-		for (const auto &item : section.items)
-			box->form()->addRow(locale_text(item.label_key), create_field(item));
+		for (const auto &item : section.items) {
+			auto *label = new QLabel(locale_text(item.label_key), box);
+			QWidget *field = create_field(item);
+			label->setBuddy(field);
+			box->form()->addRow(label, field);
+			fields_.back().label = label;
+		}
 		layout->addWidget(box);
 		boxes_.push_back(box);
+	}
+	connect(this, &SettingsPanel::changed, this, &SettingsPanel::update_enabled);
+	update_enabled();
+}
+
+void SettingsPanel::update_enabled()
+{
+	const core::StyleValues current = values();
+	for (const auto &field : fields_) {
+		const bool effective = core::item_effective(*field.item, sections_, current);
+		field.widget->setEnabled(effective);
+		if (field.label)
+			field.label->setEnabled(effective);
 	}
 }
 
@@ -279,6 +298,8 @@ QWidget *SettingsPanel::create_field(const core::ItemDef &item)
 	}
 	}
 
+	field.item = &item;
+	field.widget = widget;
 	fields_.push_back(std::move(field));
 	return widget;
 }
@@ -299,6 +320,7 @@ void SettingsPanel::set_values(const core::StyleValues &values)
 			blockers.emplace_back(object);
 	for (const auto &field : fields_)
 		field.write(values);
+	update_enabled();
 }
 
 } // namespace cskin

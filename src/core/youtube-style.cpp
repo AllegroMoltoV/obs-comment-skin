@@ -169,12 +169,9 @@ private:
 	std::string raw_;
 };
 
-void add_font(CssWriter &css, const Reader &r, const std::string &selector, std::string_view font_key,
-	      std::string_view size_key, std::string_view color_key)
+void add_font(CssWriter &css, const Reader &r, const std::string &selector, std::string_view size_key,
+	      std::string_view color_key)
 {
-	const std::string font = r.text(font_key);
-	if (!font.empty())
-		css.add(selector, "font-family", css_string(font));
 	if (!size_key.empty()) {
 		if (const auto size = r.number(size_key)) {
 			css.add(selector, "font-size", px(*size));
@@ -187,11 +184,30 @@ void add_font(CssWriter &css, const Reader &r, const std::string &selector, std:
 			css.add(selector, "color", rgb_text(*c));
 }
 
+void write_font(CssWriter &css, const Reader &r)
+{
+	const std::string font = r.text("font");
+	if (font.empty())
+		return;
+	// 書体はメッセージの中のすべての要素に当てる。YouTube は内側の要素で書体を指定し直すことがあり、
+	// 外側の要素だけに当てると引き継がれないため
+	css.add(join_selectors({std::string(TEXT), under(TEXT, "*"), std::string(PAID), under(PAID, "*"),
+				std::string(MEMBERSHIP), under(MEMBERSHIP, "*"), std::string(STICKER),
+				under(STICKER, "*"), "yt-live-chat-ticker-renderer *"}),
+		"font-family", css_string(font));
+}
+
 void write_layout(CssWriter &css, const Reader &r)
 {
-	if (const auto c = r.color("background_color"))
-		css.add(join_selectors({"yt-live-chat-renderer", "yt-live-chat-header-renderer"}), "background-color",
-			rgba_text(*c, r.number("background_opacity").value_or(100)));
+	// 色を選ばずに不透明度だけを変えたときは、YouTube の既定の背景色 rgb(15, 15, 15) に不透明度を掛ける。
+	// 不透明度を 0 にするだけで背景を透明にできるようにするため
+	const int opacity = r.number("background_opacity").value_or(100);
+	const auto background = r.color("background_color");
+	// 下部のログインを促す欄も自前の背景で塗られているため、全体の背景色に合わせる。欄そのものは隠さない
+	if (background || opacity < 100)
+		css.add(join_selectors({"yt-live-chat-renderer", "yt-live-chat-header-renderer",
+					"yt-live-chat-renderer #input-panel > *"}),
+			"background-color", rgba_text(background.value_or(Rgb{15, 15, 15}), opacity));
 	if (!r.toggle("header_visible"))
 		css.add("yt-live-chat-header-renderer", "display", "none");
 	if (!r.toggle("ticker_visible"))
@@ -201,7 +217,7 @@ void write_layout(CssWriter &css, const Reader &r)
 void write_message(CssWriter &css, const Reader &r)
 {
 	const std::string message = under(TEXT, "#message");
-	add_font(css, r, message, "message_font", "message_font_size", "message_color");
+	add_font(css, r, message, "message_font_size", "message_color");
 	if (const auto height = r.number("message_line_height"))
 		css.add(message, "line-height", ratio_text(*height));
 	if (const auto spacing = r.number("message_letter_spacing"))
@@ -219,7 +235,7 @@ void write_message(CssWriter &css, const Reader &r)
 void write_name(CssWriter &css, const Reader &r)
 {
 	const std::string name = under(TEXT, "#author-name");
-	add_font(css, r, name, "name_font", "name_font_size", {});
+	add_font(css, r, name, "name_font_size", {});
 	if (r.number("name_font_size")) {
 		// 名前を包む部品は inline-flex で、空白の無い長い名前は折り返されない。
 		// 文字を大きくしたときにメッセージの右端で切り取られないよう、幅を抑えてどこでも折り返す
@@ -232,6 +248,13 @@ void write_name(CssWriter &css, const Reader &r)
 		css.add(name + ":not(.owner):not(.moderator):not(.member)", "color", rgb_text(*c));
 	if (const auto c = r.color("owner_name_color"))
 		css.add(name + ".owner", "color", rgb_text(*c));
+	if (!r.toggle("owner_name_highlight")) {
+		// YouTube は配信者の名前を黄色の網掛けに暗い文字で表示する。網掛けを消すと暗い背景に文字が埋もれるため、
+		// 色の指定が無ければ網掛けの黄色を文字の色にする
+		css.add(name + ".owner", "background-color", "transparent");
+		if (!r.color("owner_name_color"))
+			css.add(name + ".owner", "color", "rgb(255, 214, 0)");
+	}
 	if (const auto c = r.color("moderator_name_color"))
 		css.add(name + ".moderator", "color", rgb_text(*c));
 	if (const auto c = r.color("member_name_color"))
@@ -276,7 +299,7 @@ void write_timestamp(CssWriter &css, const Reader &r)
 		css.add(timestamp, "display", "inline");
 	else if (display == "hide")
 		css.add(timestamp, "display", "none");
-	add_font(css, r, timestamp, "timestamp_font", "timestamp_font_size", "timestamp_color");
+	add_font(css, r, timestamp, "timestamp_font_size", "timestamp_color");
 }
 
 void write_outline(CssWriter &css, const Reader &r)
@@ -322,11 +345,11 @@ void write_message_background(CssWriter &css, const Reader &r)
 void write_paid(CssWriter &css, const Reader &r)
 {
 	// 1 行目は名前、2 行目は金額またはメンバーシップの説明、本文はメッセージ
-	add_font(css, r, join_selectors({under(PAID, "#author-name"), under(MEMBERSHIP, "#author-name")}), "paid_font",
+	add_font(css, r, join_selectors({under(PAID, "#author-name"), under(MEMBERSHIP, "#author-name")}),
 		 "paid_name_font_size", "paid_name_color");
 	add_font(css, r, join_selectors({under(PAID, "#purchase-amount"), under(MEMBERSHIP, "#header-subtext")}),
-		 "paid_font", "paid_amount_font_size", "paid_amount_color");
-	add_font(css, r, join_selectors({under(PAID, "#message"), under(MEMBERSHIP, "#message")}), "paid_font",
+		 "paid_amount_font_size", "paid_amount_color");
+	add_font(css, r, join_selectors({under(PAID, "#message"), under(MEMBERSHIP, "#message")}),
 		 "paid_message_font_size", "paid_message_color");
 	if (r.number("paid_name_font_size") || r.number("paid_amount_font_size")) {
 		// 名前と金額の列は flex の子で、空白の無い文字列は折り返されない。
@@ -406,6 +429,7 @@ std::string generate_youtube_css(const StyleValues &values)
 {
 	const Reader r(values);
 	CssWriter css;
+	write_font(css, r);
 	write_layout(css, r);
 	write_message(css, r);
 	write_name(css, r);

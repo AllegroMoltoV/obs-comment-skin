@@ -97,9 +97,14 @@ private:
 		std::function<void(core::StyleValues &)> read;
 		std::function<void(const core::StyleValues &)> write;
 		std::vector<QObject *> blockers;
+		const core::ItemDef *item = nullptr;
+		QWidget *widget = nullptr;
+		QWidget *label = nullptr;
 	};
 
 	QWidget *create_field(const core::ItemDef &item);
+	// 前提が整っていない項目の欄を押せない状態にする
+	void update_enabled();
 
 	const std::vector<core::SectionDef> &sections_;
 	std::vector<Field> fields_;

@@ -49,6 +49,13 @@ enum class ItemKind {
 	Font,   // 利用者の PC に入っている書体の名前
 };
 
+// 項目が効くための前提。値の書き方は、Toggle は "on"、Color は "set"、Choice は値そのもの、
+// Choice の否定は "!値"。いずれか 1 つが満たされれば効く
+struct Condition {
+	std::string_view key;
+	std::string_view value;
+};
+
 struct ItemDef {
 	std::string_view key; // 保存とプリセットの名前
 	ItemKind kind;
@@ -58,6 +65,7 @@ struct ItemDef {
 	std::optional<int> default_value;      // Number・Opacity・Toggle の既定値
 	std::string_view unit;                 // Number の単位の表示
 	std::vector<std::string_view> choices; // Choice の値。先頭が既定。表示は "Choice.<値>"
+	std::vector<Condition> enabled_when;   // 空なら常に効く
 };
 
 struct SectionDef {
@@ -79,6 +87,9 @@ struct StyleValues {
 		return numbers == other.numbers && colors == other.colors && texts == other.texts;
 	}
 };
+
+// 項目が今の値で効くときに true を返す。ドックで効かない欄を押せない状態にするために使う
+bool item_effective(const ItemDef &item, const std::vector<SectionDef> &sections, const StyleValues &values);
 
 // 書体の名前から、CSS の構文に関わる記号と制御文字を取り除く。前後の空白も取る
 std::string sanitize_font_name(std::string_view name);

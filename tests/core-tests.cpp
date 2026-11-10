@@ -248,6 +248,63 @@ void test_youtube_css_roles()
 	CHECK(ordered.find("rgba(5, 5, 5") < ordered.find("rgba(3, 3, 3"));
 }
 
+void test_youtube_css_unified_font()
+{
+	// 書体は 1 つに統一し、メッセージの中のすべての要素に当てる
+	StyleValues values;
+	values.texts["font"] = "Yu Gothic";
+	const std::string css = generate_youtube_css(values);
+	CHECK(contains(css, "yt-live-chat-text-message-renderer *"));
+	CHECK(contains(css, "yt-live-chat-paid-message-renderer *"));
+	CHECK(contains(css, "font-family: \"Yu Gothic\" !important;"));
+}
+
+void test_item_effective()
+{
+	const auto &sections = youtube_sections();
+	const ItemDef *outline_width = find_item(sections, "outline_width");
+	const ItemDef *timestamp_size = find_item(sections, "timestamp_font_size");
+	const ItemDef *message_opacity = find_item(sections, "message_background_opacity");
+	const ItemDef *fade_in_duration = find_item(sections, "fade_in_duration");
+	const ItemDef *message_size = find_item(sections, "message_font_size");
+	StyleValues values;
+	CHECK(!item_effective(*outline_width, sections, values));
+	CHECK(!item_effective(*timestamp_size, sections, values));
+	CHECK(!item_effective(*message_opacity, sections, values));
+	CHECK(!item_effective(*fade_in_duration, sections, values));
+	CHECK(item_effective(*message_size, sections, values));
+	values.numbers["outline_enabled"] = 1;
+	values.texts["timestamp_display"] = "show";
+	values.colors["member_background_color"] = Rgb{1, 1, 1};
+	values.texts["slide_in"] = "left";
+	CHECK(item_effective(*outline_width, sections, values));
+	CHECK(item_effective(*timestamp_size, sections, values));
+	CHECK(item_effective(*message_opacity, sections, values));
+	CHECK(item_effective(*fade_in_duration, sections, values));
+}
+
+void test_youtube_css_opacity_without_color()
+{
+	// 色を選ばずに不透明度だけを 0 にすると、YouTube の既定の色で透明にする
+	StyleValues values;
+	values.numbers["background_opacity"] = 0;
+	CHECK(contains(generate_youtube_css(values), "background-color: rgba(15, 15, 15, 0) !important;"));
+}
+
+void test_youtube_css_owner_highlight()
+{
+	StyleValues values;
+	CHECK(!contains(generate_youtube_css(values), "#author-name.owner"));
+	values.numbers["owner_name_highlight"] = 0;
+	const std::string css = generate_youtube_css(values);
+	CHECK(contains(css,
+		       "#author-name.owner {\n  background-color: transparent !important;\n  color: rgb(255, 214, 0)"));
+	values.colors["owner_name_color"] = Rgb{1, 2, 3};
+	const std::string colored = generate_youtube_css(values);
+	CHECK(contains(colored, "color: rgb(1, 2, 3)"));
+	CHECK(!contains(colored, "rgb(255, 214, 0)"));
+}
+
 void test_youtube_css_toggles_and_animation()
 {
 	StyleValues values;
@@ -365,6 +422,10 @@ int main()
 	test_youtube_css_line_height_overrides_ratio();
 	test_youtube_css_roles();
 	test_youtube_css_toggles_and_animation();
+	test_youtube_css_unified_font();
+	test_item_effective();
+	test_youtube_css_opacity_without_color();
+	test_youtube_css_owner_highlight();
 	test_youtube_css_never_loads_resources();
 	test_sanitize();
 	test_sanitize_font_name();

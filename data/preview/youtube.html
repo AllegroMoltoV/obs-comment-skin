@@ -11,7 +11,9 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:">
 <title>Comment Skin preview</title>
 <style>
-  html, body { margin: 0; height: 100%; background: #3a3f4b; overflow: hidden; }
+  /* 透明な部分が分かるよう、背景を市松模様にする */
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  body { background: repeating-conic-gradient(#cccccc 0 25%, #ffffff 0 50%) 0 0 / 16px 16px; }
   body { font-family: Roboto, Arial, sans-serif; }
   yt-live-chat-renderer { display: flex; flex-direction: column; height: 100%; background-color: #0f0f0f; color: #fff; }
   yt-live-chat-header-renderer { display: flex; align-items: center; flex: none; height: 40px; padding: 0 16px; background-color: #0f0f0f; border-bottom: 1px solid #303030; font-size: 14px; color: #f1f1f1; }

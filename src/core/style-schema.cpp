@@ -66,6 +66,18 @@ ItemDef font(std::string_view key, std::string_view label)
 	return ItemDef{key, ItemKind::Font, label, 0, 0, std::nullopt, {}, {}};
 }
 
+ItemDef when(ItemDef item, std::vector<Condition> conditions)
+{
+	item.enabled_when = std::move(conditions);
+	return item;
+}
+
+// メッセージの背景の不透明度と形は、いずれかの背景色を選んだときだけ効く
+const std::vector<Condition> MESSAGE_BACKGROUND_SET = {{"message_background_color", "set"},
+						       {"owner_background_color", "set"},
+						       {"moderator_background_color", "set"},
+						       {"member_background_color", "set"}};
+
 } // namespace
 
 std::optional<Rgb> parse_hex_color(std::string_view text)
@@ -98,9 +110,12 @@ const std::vector<SectionDef> &youtube_sections()
 {
 	// キーは保存とプリセットに使うため、変えるときは古いキーの読み込みも考える
 	static const std::vector<SectionDef> sections = {
+		{"Section.General",
+		 {
+			 font("font", "Item.Font"),
+		 }},
 		{"Section.Message",
 		 {
-			 font("message_font", "Item.Font"),
 			 number("message_font_size", "Item.FontSize", 8, 96, "px"),
 			 number("message_line_height", "Item.LineHeight", 100, 300, "%"),
 			 number("message_letter_spacing", "Item.LetterSpacing", 0, 20, "px"),
@@ -109,10 +124,10 @@ const std::vector<SectionDef> &youtube_sections()
 		 }},
 		{"Section.Name",
 		 {
-			 font("name_font", "Item.Font"),
 			 number("name_font_size", "Item.FontSize", 8, 96, "px"),
 			 color("name_color", "Item.TextColor"),
 			 color("owner_name_color", "Item.OwnerColor"),
+			 toggle("owner_name_highlight", "Item.OwnerHighlight", true),
 			 color("moderator_name_color", "Item.ModeratorColor"),
 			 color("member_name_color", "Item.MemberColor"),
 			 toggle("badges_visible", "Item.BadgesVisible", true),
@@ -121,21 +136,22 @@ const std::vector<SectionDef> &youtube_sections()
 		{"Section.Avatar",
 		 {
 			 toggle("avatar_visible", "Item.AvatarVisible", true),
-			 number("avatar_size", "Item.AvatarSize", 12, 96, "px"),
-			 choice("avatar_shape", "Item.AvatarShape", {"default", "circle", "rounded", "square"}),
+			 when(number("avatar_size", "Item.AvatarSize", 12, 96, "px"), {{"avatar_visible", "on"}}),
+			 when(choice("avatar_shape", "Item.AvatarShape", {"default", "circle", "rounded", "square"}),
+			      {{"avatar_visible", "on"}}),
 		 }},
 		{"Section.Timestamp",
 		 {
 			 choice("timestamp_display", "Item.TimestampDisplay", {"default", "show", "hide"}),
-			 font("timestamp_font", "Item.Font"),
-			 number("timestamp_font_size", "Item.FontSize", 8, 48, "px"),
-			 color("timestamp_color", "Item.TextColor"),
+			 when(number("timestamp_font_size", "Item.FontSize", 8, 48, "px"),
+			      {{"timestamp_display", "show"}}),
+			 when(color("timestamp_color", "Item.TextColor"), {{"timestamp_display", "show"}}),
 		 }},
 		{"Section.Outline",
 		 {
 			 toggle("outline_enabled", "Item.OutlineEnabled", false),
-			 number("outline_width", "Item.OutlineWidth", 1, 8, "px", 2),
-			 color("outline_color", "Item.OutlineColor"),
+			 when(number("outline_width", "Item.OutlineWidth", 1, 8, "px", 2), {{"outline_enabled", "on"}}),
+			 when(color("outline_color", "Item.OutlineColor"), {{"outline_enabled", "on"}}),
 		 }},
 		{"Section.Background",
 		 {
@@ -145,12 +161,13 @@ const std::vector<SectionDef> &youtube_sections()
 			 color("owner_background_color", "Item.OwnerBackgroundColor"),
 			 color("moderator_background_color", "Item.ModeratorBackgroundColor"),
 			 color("member_background_color", "Item.MemberBackgroundColor"),
-			 opacity("message_background_opacity", "Item.MessageBackgroundOpacity"),
-			 choice("message_background_style", "Item.MessageBackgroundStyle", {"fill", "bar"}),
+			 when(opacity("message_background_opacity", "Item.MessageBackgroundOpacity"),
+			      MESSAGE_BACKGROUND_SET),
+			 when(choice("message_background_style", "Item.MessageBackgroundStyle", {"fill", "bar"}),
+			      MESSAGE_BACKGROUND_SET),
 		 }},
 		{"Section.Paid",
 		 {
-			 font("paid_font", "Item.Font"),
 			 number("paid_name_font_size", "Item.PaidNameFontSize", 8, 96, "px"),
 			 color("paid_name_color", "Item.PaidNameColor"),
 			 number("paid_amount_font_size", "Item.PaidAmountFontSize", 8, 96, "px"),
@@ -167,11 +184,13 @@ const std::vector<SectionDef> &youtube_sections()
 		{"Section.Animation",
 		 {
 			 toggle("fade_in", "Item.FadeIn", false),
-			 number("fade_in_duration", "Item.FadeInDuration", 0, 3000, "ms", 200),
+			 when(number("fade_in_duration", "Item.FadeInDuration", 0, 3000, "ms", 200),
+			      {{"fade_in", "on"}, {"slide_in", "!none"}}),
 			 choice("slide_in", "Item.SlideIn", {"none", "left", "right", "bottom"}),
 			 toggle("remove_old", "Item.RemoveOld", false),
-			 number("remove_after", "Item.RemoveAfter", 1, 600, "s", 30),
-			 number("fade_out_duration", "Item.FadeOutDuration", 0, 3000, "ms", 200),
+			 when(number("remove_after", "Item.RemoveAfter", 1, 600, "s", 30), {{"remove_old", "on"}}),
+			 when(number("fade_out_duration", "Item.FadeOutDuration", 0, 3000, "ms", 200),
+			      {{"remove_old", "on"}}),
 		 }},
 	};
 	return sections;
@@ -191,6 +210,45 @@ std::string sanitize_font_name(std::string_view name)
 	if (first == std::string::npos)
 		return {};
 	return result.substr(first, result.find_last_not_of(' ') - first + 1);
+}
+
+bool item_effective(const ItemDef &item, const std::vector<SectionDef> &sections, const StyleValues &values)
+{
+	if (item.enabled_when.empty())
+		return true;
+	for (const auto &condition : item.enabled_when) {
+		const ItemDef *target = find_item(sections, condition.key);
+		if (!target)
+			continue;
+		switch (target->kind) {
+		case ItemKind::Toggle: {
+			const auto it = values.numbers.find(condition.key);
+			const int value = it != values.numbers.end() ? it->second : target->default_value.value_or(0);
+			if ((value != 0) == (condition.value == "on"))
+				return true;
+			break;
+		}
+		case ItemKind::Color:
+			if (values.colors.count(condition.key) > 0)
+				return true;
+			break;
+		case ItemKind::Choice: {
+			const auto it = values.texts.find(condition.key);
+			const std::string current = it != values.texts.end() ? it->second
+									     : std::string(target->choices.front());
+			const bool negate = !condition.value.empty() && condition.value.front() == '!';
+			const std::string_view expected = negate ? condition.value.substr(1) : condition.value;
+			if ((current == expected) != negate)
+				return true;
+			break;
+		}
+		case ItemKind::Number:
+		case ItemKind::Opacity:
+		case ItemKind::Font:
+			break;
+		}
+	}
+	return false;
 }
 
 const ItemDef *find_item(const std::vector<SectionDef> &sections, std::string_view key)
