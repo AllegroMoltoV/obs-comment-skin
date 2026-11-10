@@ -212,6 +212,10 @@ void write_layout(CssWriter &css, const Reader &r)
 		css.add("yt-live-chat-header-renderer", "display", "none");
 	if (!r.toggle("ticker_visible"))
 		css.add("yt-live-chat-renderer #ticker", "display", "none");
+	if (!r.toggle("input_panel_visible"))
+		css.add("yt-live-chat-renderer #input-panel", "display", "none");
+	if (!r.toggle("engagement_visible"))
+		css.add("yt-live-chat-viewer-engagement-message-renderer", "display", "none");
 }
 
 void write_message(CssWriter &css, const Reader &r)

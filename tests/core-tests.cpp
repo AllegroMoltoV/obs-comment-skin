@@ -283,6 +283,21 @@ void test_item_effective()
 	CHECK(item_effective(*fade_in_duration, sections, values));
 }
 
+void test_youtube_css_hide_input_and_engagement()
+{
+	StyleValues values;
+	const std::string defaults = generate_youtube_css(values);
+	CHECK(!contains(defaults, "#input-panel {"));
+	CHECK(!contains(defaults, "viewer-engagement"));
+	values.numbers["input_panel_visible"] = 0;
+	values.numbers["engagement_visible"] = 0;
+	const std::string css = generate_youtube_css(values);
+	CHECK(contains(css, "yt-live-chat-renderer #input-panel {\n  display: none !important;"));
+	CHECK(contains(css, "yt-live-chat-viewer-engagement-message-renderer {\n  display: none !important;"));
+	// 商品の紹介は隠さない
+	CHECK(!contains(css, "product-picker"));
+}
+
 void test_youtube_css_opacity_without_color()
 {
 	// 色を選ばずに不透明度だけを 0 にすると、YouTube の既定の色で透明にする
@@ -425,6 +440,7 @@ int main()
 	test_youtube_css_unified_font();
 	test_item_effective();
 	test_youtube_css_opacity_without_color();
+	test_youtube_css_hide_input_and_engagement();
 	test_youtube_css_owner_highlight();
 	test_youtube_css_never_loads_resources();
 	test_sanitize();

@@ -180,6 +180,8 @@ const std::vector<SectionDef> &youtube_sections()
 		 {
 			 toggle("header_visible", "Item.HeaderVisible", true),
 			 toggle("ticker_visible", "Item.TickerVisible", true),
+			 toggle("input_panel_visible", "Item.InputPanelVisible", true),
+			 toggle("engagement_visible", "Item.EngagementVisible", true),
 		 }},
 		{"Section.Animation",
 		 {
