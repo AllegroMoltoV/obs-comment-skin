@@ -35,7 +35,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 namespace cskin {
 
 class PreviewPanel;
-class YouTubeSettingsPanel;
+class SettingsPanel;
 
 // 一覧を開くたびに候補を作り直すコンボボックス
 class SourceComboBox : public QComboBox {
@@ -68,8 +68,12 @@ private slots:
 	void on_copy_css();
 	void on_settings_changed();
 	void apply_pending();
+	void on_preset_save();
+	void on_preset_load();
+	void on_preset_delete();
 
 private:
+	void refresh_presets(const QString &select_name = {});
 	// 選択中のソース。参照を 1 つ持つため、呼び出し側が obs_source_release() で返す
 	obs_source_t *selected_source() const;
 	core::ChatTarget current_target() const;
@@ -86,8 +90,13 @@ private:
 	QComboBox *target_combo_{nullptr};
 	QLabel *target_hint_label_{nullptr};
 	QLabel *settings_label_{nullptr};
-	YouTubeSettingsPanel *youtube_panel_{nullptr};
+	SettingsPanel *youtube_panel_{nullptr};
 	PreviewPanel *preview_{nullptr};
+	QWidget *preset_row_{nullptr};
+	QComboBox *preset_combo_{nullptr};
+	QPushButton *preset_load_button_{nullptr};
+	QPushButton *preset_save_button_{nullptr};
+	QPushButton *preset_delete_button_{nullptr};
 	QPushButton *undo_button_{nullptr};
 	QTimer *apply_timer_{nullptr};
 	QString pending_uuid_; // 適用を待っているソース

@@ -18,15 +18,20 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #pragma once
 
-#include "core/youtube-style.h"
+#include "core/style-schema.h"
 
+#include <QCheckBox>
+#include <QComboBox>
 #include <QFormLayout>
 #include <QPushButton>
 #include <QSpinBox>
 #include <QToolButton>
 #include <QWidget>
 
+#include <functional>
 #include <optional>
+#include <string>
+#include <vector>
 
 namespace cskin {
 
@@ -35,7 +40,7 @@ class CollapsibleSection : public QWidget {
 	Q_OBJECT
 
 public:
-	CollapsibleSection(const QString &title, QWidget *parent = nullptr);
+	CollapsibleSection(const QString &title, bool expanded, QWidget *parent = nullptr);
 
 	QFormLayout *form() const { return form_; }
 	void set_expanded(bool expanded);
@@ -46,7 +51,7 @@ private:
 	QFormLayout *form_{nullptr};
 };
 
-// 色を選ぶボタン。未指定のときは既定と表示し、YouTube の既定の色を使う
+// 色を選ぶボタン。未指定のときは既定と表示する
 class ColorField : public QWidget {
 	Q_OBJECT
 
@@ -68,37 +73,31 @@ private:
 	std::optional<core::Rgb> color_;
 };
 
-// 文字の大きさ。最小値の 1 つ下を既定として表示する
-class FontSizeField : public QSpinBox {
+// 表の項目から入力欄を作り、値を読み書きする
+class SettingsPanel : public QWidget {
 	Q_OBJECT
 
 public:
-	explicit FontSizeField(QWidget *parent = nullptr);
+	SettingsPanel(const std::vector<core::SectionDef> &sections, QWidget *parent = nullptr);
 
-	std::optional<int> size() const;
-	void set_size(const std::optional<int> &size);
-};
-
-// YouTube の設定の項目
-class YouTubeSettingsPanel : public QWidget {
-	Q_OBJECT
-
-public:
-	explicit YouTubeSettingsPanel(QWidget *parent = nullptr);
-
-	core::YouTubeStyle style() const;
-	void set_style(const core::YouTubeStyle &style);
+	core::StyleValues values() const;
+	void set_values(const core::StyleValues &values);
 
 signals:
 	void changed();
 
 private:
-	void update_enabled();
+	// 項目ごとの読み書き。read は値を values に足し、write は values から欄へ写す
+	struct Field {
+		std::function<void(core::StyleValues &)> read;
+		std::function<void(const core::StyleValues &)> write;
+		std::vector<QObject *> blockers;
+	};
 
-	FontSizeField *message_font_size_{nullptr};
-	ColorField *message_color_{nullptr};
-	ColorField *background_color_{nullptr};
-	QSpinBox *background_opacity_{nullptr};
+	QWidget *create_field(const core::ItemDef &item);
+
+	const std::vector<core::SectionDef> &sections_;
+	std::vector<Field> fields_;
 };
 
 } // namespace cskin

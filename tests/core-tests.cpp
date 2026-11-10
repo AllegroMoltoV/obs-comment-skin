@@ -179,39 +179,151 @@ void test_hex_color()
 	CHECK(!parse_hex_color("#000000; } @import url(x) {").has_value());
 }
 
-void test_youtube_css_empty()
+bool contains(const std::string &text, const std::string &needle)
 {
-	CHECK(generate_youtube_css(YouTubeStyle{}).empty());
+	return text.find(needle) != std::string::npos;
 }
 
-void test_youtube_css_values()
+void test_youtube_css_empty()
 {
-	YouTubeStyle style;
-	style.message_font_size = 24;
-	style.message_color = Rgb{255, 255, 0};
-	style.background_color = Rgb{0, 0, 0};
-	style.background_opacity = 50;
-	const std::string css = generate_youtube_css(style);
-	CHECK(css.find("font-size: 24px !important;") != std::string::npos);
-	CHECK(css.find("color: rgb(255, 255, 0) !important;") != std::string::npos);
-	CHECK(css.find("background-color: rgba(0, 0, 0, 0.5) !important;") != std::string::npos);
-	CHECK(css.find("@import") == std::string::npos);
-	CHECK(css.find("url(") == std::string::npos);
+	CHECK(generate_youtube_css(StyleValues{}).empty());
+}
+
+void test_youtube_css_first_items()
+{
+	// 最初の版から使っている 4 項目のキー。保存済みの設定を読めるよう、名前を変えない
+	StyleValues values;
+	values.numbers["message_font_size"] = 24;
+	values.colors["message_color"] = Rgb{255, 255, 0};
+	values.colors["background_color"] = Rgb{0, 0, 0};
+	values.numbers["background_opacity"] = 50;
+	const std::string css = generate_youtube_css(values);
+	CHECK(contains(css, "font-size: 24px !important;"));
+	CHECK(contains(css, "line-height: 1.43 !important;"));
+	CHECK(contains(css, "color: rgb(255, 255, 0) !important;"));
+	CHECK(contains(css, "background-color: rgba(0, 0, 0, 0.5) !important;"));
 }
 
 void test_youtube_css_clamps_and_alpha()
 {
-	YouTubeStyle style;
-	style.message_font_size = 1000;
-	style.background_color = Rgb{1, 2, 3};
+	StyleValues values;
+	values.numbers["message_font_size"] = 1000;
+	values.colors["background_color"] = Rgb{1, 2, 3};
 	const int percents[] = {0, 5, 35, 99, 100, 150, -5};
 	const char *expected[] = {"0)", "0.05)", "0.35)", "0.99)", "1)", "1)", "0)"};
 	for (size_t i = 0; i < 7; ++i) {
-		style.background_opacity = percents[i];
-		const std::string css = generate_youtube_css(style);
-		CHECK(css.find("rgba(1, 2, 3, " + std::string(expected[i])) != std::string::npos);
-		CHECK(css.find("font-size: " + std::to_string(FONT_SIZE_MAX) + "px") != std::string::npos);
+		values.numbers["background_opacity"] = percents[i];
+		const std::string css = generate_youtube_css(values);
+		CHECK(contains(css, "rgba(1, 2, 3, " + std::string(expected[i])));
+		CHECK(contains(css, "font-size: 96px"));
 	}
+}
+
+void test_youtube_css_line_height_overrides_ratio()
+{
+	StyleValues values;
+	values.numbers["message_font_size"] = 30;
+	values.numbers["message_line_height"] = 140;
+	const std::string css = generate_youtube_css(values);
+	CHECK(contains(css, "line-height: 1.4 !important;"));
+	CHECK(!contains(css, "line-height: 1.43"));
+}
+
+void test_youtube_css_roles()
+{
+	StyleValues values;
+	values.colors["name_color"] = Rgb{1, 1, 1};
+	values.colors["owner_name_color"] = Rgb{2, 2, 2};
+	values.colors["member_background_color"] = Rgb{3, 3, 3};
+	values.colors["owner_background_color"] = Rgb{4, 4, 4};
+	values.texts["message_background_style"] = "bar";
+	const std::string css = generate_youtube_css(values);
+	CHECK(contains(css, "#author-name:not(.owner):not(.moderator):not(.member) {\n  color: rgb(1, 1, 1)"));
+	CHECK(contains(css, "#author-name.owner {\n  color: rgb(2, 2, 2)"));
+	CHECK(contains(css, "yt-live-chat-text-message-renderer:has(#author-name.member) {\n  box-shadow:"));
+	CHECK(contains(css, "yt-live-chat-text-message-renderer[author-type=\"owner\"] {\n  box-shadow:"));
+	// 種別ごとの色は、全体の色より後に書いて優先させる
+	values.colors["message_background_color"] = Rgb{5, 5, 5};
+	const std::string ordered = generate_youtube_css(values);
+	CHECK(ordered.find("rgba(5, 5, 5") < ordered.find("rgba(3, 3, 3"));
+}
+
+void test_youtube_css_toggles_and_animation()
+{
+	StyleValues values;
+	CHECK(!contains(generate_youtube_css(values), "yt-live-chat-header-renderer {\n  display: none"));
+	values.numbers["header_visible"] = 0;
+	values.numbers["remove_old"] = 1;
+	values.numbers["remove_after"] = 10;
+	const std::string css = generate_youtube_css(values);
+	CHECK(contains(css, "yt-live-chat-header-renderer {\n  display: none !important;"));
+	CHECK(contains(css, "@keyframes cskin-out"));
+	CHECK(contains(css, "cskin-out 200ms ease-in 10s forwards"));
+	// 消すのはメッセージの要素だけにし、YouTube の案内などの要素を含む #items の子すべては対象にしない
+	CHECK(!contains(css, "#items"));
+}
+
+void test_youtube_css_never_loads_resources()
+{
+	// すべての項目に値を入れても、外部の資源を読み込む記述を生成しない
+	StyleValues values;
+	for (const auto &section : youtube_sections()) {
+		for (const auto &item : section.items) {
+			const std::string key(item.key);
+			switch (item.kind) {
+			case ItemKind::Number:
+			case ItemKind::Opacity:
+				values.numbers[key] = item.max;
+				break;
+			case ItemKind::Toggle:
+				values.numbers[key] = item.default_value.value_or(0) == 0 ? 1 : 0;
+				break;
+			case ItemKind::Color:
+				values.colors[key] = Rgb{10, 20, 30};
+				break;
+			case ItemKind::Choice:
+				values.texts[key] = std::string(item.choices.back());
+				break;
+			case ItemKind::Font:
+				values.texts[key] = "Evil\"; } @import url(http://example.com/x.css); a {\"";
+				break;
+			}
+		}
+	}
+	const std::string css = generate_youtube_css(values);
+	CHECK(!css.empty());
+	CHECK(!contains(css, "@import"));
+	CHECK(!contains(css, "url("));
+}
+
+void test_sanitize()
+{
+	StyleValues values;
+	values.numbers["message_font_size"] = 1;
+	values.numbers["unknown_key"] = 5;
+	values.texts["avatar_shape"] = "triangle";
+	values.texts["slide_in"] = "left";
+	values.colors["message_font_size"] = Rgb{1, 2, 3};
+	const StyleValues clean = sanitize(youtube_sections(), values);
+	CHECK(clean.numbers.at("message_font_size") == 8);
+	CHECK(clean.numbers.count("unknown_key") == 0);
+	CHECK(clean.texts.count("avatar_shape") == 0);
+	CHECK(clean.texts.at("slide_in") == "left");
+	CHECK(clean.colors.empty());
+}
+
+void test_sanitize_font_name()
+{
+	CHECK(sanitize_font_name("Yu Gothic UI") == "Yu Gothic UI");
+	CHECK(sanitize_font_name("  游ゴシック  ") == "游ゴシック");
+	CHECK(sanitize_font_name("a\"; } @import url(x) {") == "a  import urlx");
+	CHECK(sanitize_font_name("();{}").empty());
+}
+
+void test_css_string()
+{
+	CHECK(css_string("Yu Gothic") == "\"Yu Gothic\"");
+	CHECK(css_string("a\"b\\c\nd") == "\"a\\\"b\\\\cd\"");
 }
 
 void test_js_string_literal()
@@ -248,8 +360,15 @@ int main()
 	test_twitch_popout_url();
 	test_hex_color();
 	test_youtube_css_empty();
-	test_youtube_css_values();
+	test_youtube_css_first_items();
 	test_youtube_css_clamps_and_alpha();
+	test_youtube_css_line_height_overrides_ratio();
+	test_youtube_css_roles();
+	test_youtube_css_toggles_and_animation();
+	test_youtube_css_never_loads_resources();
+	test_sanitize();
+	test_sanitize_font_name();
+	test_css_string();
 	test_js_string_literal();
 	test_preview_style_script();
 

@@ -18,36 +18,17 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #pragma once
 
-#include <cstdint>
-#include <optional>
+#include "style-schema.h"
+
 #include <string>
 #include <string_view>
 
 namespace cskin::core {
 
-struct Rgb {
-	std::uint8_t r = 0;
-	std::uint8_t g = 0;
-	std::uint8_t b = 0;
+// CSS の二重引用符の文字列にする。書体の名前を font-family に入れるときに使う
+std::string css_string(std::string_view text);
 
-	bool operator==(const Rgb &other) const { return r == other.r && g == other.g && b == other.b; }
-};
-
-// "#rrggbb" だけを受け付ける。生成する CSS に任意の文字列が入らないようにするため
-std::optional<Rgb> parse_hex_color(std::string_view text);
-std::string to_hex_color(const Rgb &color);
-
-inline constexpr int FONT_SIZE_MIN = 8;
-inline constexpr int FONT_SIZE_MAX = 96;
-
-// YouTube のチャットの設定。値が無い項目は YouTube の既定の見た目のままにする
-struct YouTubeStyle {
-	std::optional<int> message_font_size; // px
-	std::optional<Rgb> message_color;
-	std::optional<Rgb> background_color;
-	int background_opacity = 100; // 0 から 100 の百分率
-};
-
-std::string generate_youtube_css(const YouTubeStyle &style);
+// YouTube のチャットの CSS を生成する。値は youtube_sections() の表にしたがう
+std::string generate_youtube_css(const StyleValues &values);
 
 } // namespace cskin::core

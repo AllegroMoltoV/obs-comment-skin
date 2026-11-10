@@ -21,6 +21,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <obs-module.h>
 
 #include <QColorDialog>
+#include <QFontDatabase>
 #include <QHBoxLayout>
 #include <QIcon>
 #include <QPixmap>
@@ -30,9 +31,9 @@ namespace cskin {
 
 namespace {
 
-QString locale_text(const char *key)
+QString locale_text(std::string_view key)
 {
-	return QString::fromUtf8(obs_module_text(key));
+	return QString::fromUtf8(obs_module_text(std::string(key).c_str()));
 }
 
 QColor to_qcolor(const core::Rgb &c)
@@ -42,7 +43,7 @@ QColor to_qcolor(const core::Rgb &c)
 
 } // namespace
 
-CollapsibleSection::CollapsibleSection(const QString &title, QWidget *parent) : QWidget(parent)
+CollapsibleSection::CollapsibleSection(const QString &title, bool expanded, QWidget *parent) : QWidget(parent)
 {
 	header_ = new QToolButton(this);
 	header_->setText(title);
@@ -60,7 +61,7 @@ CollapsibleSection::CollapsibleSection(const QString &title, QWidget *parent) : 
 	layout->addWidget(body_);
 
 	connect(header_, &QToolButton::toggled, this, &CollapsibleSection::set_expanded);
-	set_expanded(true);
+	set_expanded(expanded);
 }
 
 void CollapsibleSection::set_expanded(bool expanded)
@@ -123,84 +124,165 @@ void ColorField::update_view()
 	clear_button_->setEnabled(color_.has_value());
 }
 
-FontSizeField::FontSizeField(QWidget *parent) : QSpinBox(parent)
+SettingsPanel::SettingsPanel(const std::vector<core::SectionDef> &sections, QWidget *parent)
+	: QWidget(parent),
+	  sections_(sections)
 {
-	setRange(core::FONT_SIZE_MIN - 1, core::FONT_SIZE_MAX);
-	setSpecialValueText(locale_text("Field.Default"));
-	setSuffix(QStringLiteral(" px"));
-	setValue(minimum());
-}
-
-std::optional<int> FontSizeField::size() const
-{
-	if (value() == minimum())
-		return std::nullopt;
-	return value();
-}
-
-void FontSizeField::set_size(const std::optional<int> &size)
-{
-	setValue(size ? *size : minimum());
-}
-
-YouTubeSettingsPanel::YouTubeSettingsPanel(QWidget *parent) : QWidget(parent)
-{
-	auto *message = new CollapsibleSection(locale_text("Section.Message"), this);
-	message_font_size_ = new FontSizeField(message);
-	message_color_ = new ColorField(message);
-	message->form()->addRow(locale_text("Item.FontSize"), message_font_size_);
-	message->form()->addRow(locale_text("Item.TextColor"), message_color_);
-
-	auto *background = new CollapsibleSection(locale_text("Section.Background"), this);
-	background_color_ = new ColorField(background);
-	background_opacity_ = new QSpinBox(background);
-	background_opacity_->setRange(0, 100);
-	background_opacity_->setSuffix(QStringLiteral(" %"));
-	background_opacity_->setValue(100);
-	background->form()->addRow(locale_text("Item.BackgroundColor"), background_color_);
-	background->form()->addRow(locale_text("Item.Opacity"), background_opacity_);
-
 	auto *layout = new QVBoxLayout(this);
 	layout->setContentsMargins(0, 0, 0, 0);
-	layout->addWidget(message);
-	layout->addWidget(background);
 
-	const auto notify = [this]() {
-		update_enabled();
-		emit changed();
-	};
-	connect(message_font_size_, &QSpinBox::valueChanged, this, notify);
-	connect(message_color_, &ColorField::changed, this, notify);
-	connect(background_color_, &ColorField::changed, this, notify);
-	connect(background_opacity_, &QSpinBox::valueChanged, this, notify);
-	update_enabled();
+	bool first = true;
+	for (const auto &section : sections_) {
+		// 項目が多いため、最初の区画だけを開いて表示する
+		auto *box = new CollapsibleSection(locale_text(section.title_key), first, this);
+		first = false;
+		for (const auto &item : section.items)
+			box->form()->addRow(locale_text(item.label_key), create_field(item));
+		layout->addWidget(box);
+	}
 }
 
-core::YouTubeStyle YouTubeSettingsPanel::style() const
+QWidget *SettingsPanel::create_field(const core::ItemDef &item)
 {
-	core::YouTubeStyle style;
-	style.message_font_size = message_font_size_->size();
-	style.message_color = message_color_->color();
-	style.background_color = background_color_->color();
-	style.background_opacity = background_opacity_->value();
-	return style;
+	const std::string key(item.key);
+	Field field;
+	QWidget *widget = nullptr;
+
+	switch (item.kind) {
+	case core::ItemKind::Number:
+	case core::ItemKind::Opacity: {
+		auto *spin = new QSpinBox(this);
+		// 既定値の無い項目は、最小値の 1 つ下を「既定」として表示する
+		const bool has_special = !item.default_value.has_value();
+		const int special = item.min - 1;
+		spin->setRange(has_special ? special : item.min, item.max);
+		if (has_special)
+			spin->setSpecialValueText(locale_text("Field.Default"));
+		if (!item.unit.empty())
+			spin->setSuffix(QStringLiteral(" ") + QString::fromUtf8(std::string(item.unit).c_str()));
+		const int initial = has_special ? special : *item.default_value;
+		spin->setValue(initial);
+		field.read = [spin, key, initial](core::StyleValues &values) {
+			if (spin->value() != initial)
+				values.numbers[key] = spin->value();
+		};
+		field.write = [spin, key, initial](const core::StyleValues &values) {
+			const auto it = values.numbers.find(key);
+			spin->setValue(it != values.numbers.end() ? it->second : initial);
+		};
+		field.blockers.push_back(spin);
+		connect(spin, &QSpinBox::valueChanged, this, &SettingsPanel::changed);
+		widget = spin;
+		break;
+	}
+	case core::ItemKind::Toggle: {
+		auto *check = new QCheckBox(this);
+		const bool initial = item.default_value.value_or(0) != 0;
+		check->setChecked(initial);
+		field.read = [check, key, initial](core::StyleValues &values) {
+			if (check->isChecked() != initial)
+				values.numbers[key] = check->isChecked() ? 1 : 0;
+		};
+		field.write = [check, key, initial](const core::StyleValues &values) {
+			const auto it = values.numbers.find(key);
+			check->setChecked(it != values.numbers.end() ? it->second != 0 : initial);
+		};
+		field.blockers.push_back(check);
+		connect(check, &QCheckBox::toggled, this, &SettingsPanel::changed);
+		widget = check;
+		break;
+	}
+	case core::ItemKind::Color: {
+		auto *color = new ColorField(this);
+		field.read = [color, key](core::StyleValues &values) {
+			if (const auto c = color->color())
+				values.colors[key] = *c;
+		};
+		field.write = [color, key](const core::StyleValues &values) {
+			const auto it = values.colors.find(key);
+			color->set_color(it != values.colors.end() ? std::optional<core::Rgb>(it->second)
+								   : std::nullopt);
+		};
+		connect(color, &ColorField::changed, this, &SettingsPanel::changed);
+		widget = color;
+		break;
+	}
+	case core::ItemKind::Choice: {
+		auto *combo = new QComboBox(this);
+		for (const auto &value : item.choices) {
+			const std::string label_key = "Choice." + std::string(value);
+			combo->addItem(locale_text(label_key), QString::fromUtf8(std::string(value).c_str()));
+		}
+		field.read = [combo, key](core::StyleValues &values) {
+			if (combo->currentIndex() > 0)
+				values.texts[key] = combo->currentData().toString().toStdString();
+		};
+		field.write = [combo, key](const core::StyleValues &values) {
+			const auto it = values.texts.find(key);
+			const int index = it != values.texts.end() ? combo->findData(QString::fromStdString(it->second))
+								   : 0;
+			combo->setCurrentIndex(index >= 0 ? index : 0);
+		};
+		field.blockers.push_back(combo);
+		connect(combo, &QComboBox::currentIndexChanged, this, &SettingsPanel::changed);
+		widget = combo;
+		break;
+	}
+	case core::ItemKind::Font: {
+		// 書体の候補は、利用者の PC に入っている書体だけにする
+		auto *combo = new QComboBox(this);
+		combo->addItem(locale_text("Field.Default"), QString());
+		for (const QString &family : QFontDatabase::families())
+			combo->addItem(family, family);
+		combo->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+		combo->setMinimumContentsLength(8);
+		field.read = [combo, key](core::StyleValues &values) {
+			const QString family = combo->currentData().toString();
+			if (!family.isEmpty())
+				values.texts[key] = family.toStdString();
+		};
+		field.write = [combo, key](const core::StyleValues &values) {
+			const auto it = values.texts.find(key);
+			if (it == values.texts.end()) {
+				combo->setCurrentIndex(0);
+				return;
+			}
+			const QString family = QString::fromStdString(it->second);
+			int index = combo->findData(family);
+			// プリセットを作った PC にだけある書体も、名前を残して選べるようにする
+			if (index < 0) {
+				combo->addItem(family, family);
+				index = combo->count() - 1;
+			}
+			combo->setCurrentIndex(index);
+		};
+		field.blockers.push_back(combo);
+		connect(combo, &QComboBox::currentIndexChanged, this, &SettingsPanel::changed);
+		widget = combo;
+		break;
+	}
+	}
+
+	fields_.push_back(std::move(field));
+	return widget;
 }
 
-void YouTubeSettingsPanel::set_style(const core::YouTubeStyle &style)
+core::StyleValues SettingsPanel::values() const
 {
-	const QSignalBlocker block_size(message_font_size_);
-	const QSignalBlocker block_opacity(background_opacity_);
-	message_font_size_->set_size(style.message_font_size);
-	message_color_->set_color(style.message_color);
-	background_color_->set_color(style.background_color);
-	background_opacity_->setValue(style.background_opacity);
-	update_enabled();
+	core::StyleValues values;
+	for (const auto &field : fields_)
+		field.read(values);
+	return values;
 }
 
-void YouTubeSettingsPanel::update_enabled()
+void SettingsPanel::set_values(const core::StyleValues &values)
 {
-	// 不透明度は背景色を指定したときだけ使う
-	background_opacity_->setEnabled(background_color_->color().has_value());
+	std::vector<QSignalBlocker> blockers;
+	for (const auto &field : fields_)
+		for (QObject *object : field.blockers)
+			blockers.emplace_back(object);
+	for (const auto &field : fields_)
+		field.write(values);
 }
 
 } // namespace cskin

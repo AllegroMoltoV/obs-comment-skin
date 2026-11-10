@@ -19,7 +19,9 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include "comment-skin-dock.h"
 
 #include "core/managed-css.h"
+#include "core/youtube-style.h"
 #include "create-source-dialog.h"
+#include "preset-store.h"
 #include "preview-panel.h"
 #include "settings-widgets.h"
 #include "source-state.h"
@@ -30,11 +32,14 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <QApplication>
 #include <QClipboard>
 #include <QHBoxLayout>
+#include <QInputDialog>
+#include <QLineEdit>
 #include <QMessageBox>
 #include <QScrollArea>
 #include <QString>
 #include <QVBoxLayout>
 
+#include <algorithm>
 #include <cstring>
 #include <utility>
 #include <vector>
@@ -125,10 +130,29 @@ CommentSkinDock::CommentSkinDock(QWidget *parent) : QWidget(parent)
 	// 設定の項目
 	settings_label_ = new QLabel(content);
 	settings_label_->setWordWrap(true);
-	youtube_panel_ = new YouTubeSettingsPanel(content);
+	youtube_panel_ = new SettingsPanel(core::youtube_sections(), content);
 	youtube_panel_->setVisible(false);
 	preview_ = new PreviewPanel(content);
 	preview_->setVisible(false);
+
+	// プリセット
+	preset_row_ = new QWidget(content);
+	auto *preset_layout = new QHBoxLayout(preset_row_);
+	preset_layout->setContentsMargins(0, 0, 0, 0);
+	auto *preset_label = new QLabel(text("Preset"), preset_row_);
+	preset_combo_ = new QComboBox(preset_row_);
+	preset_combo_->setPlaceholderText(text("Preset.None"));
+	preset_combo_->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+	preset_label->setBuddy(preset_combo_);
+	preset_load_button_ = new QPushButton(text("Preset.Load"), preset_row_);
+	preset_save_button_ = new QPushButton(text("Preset.Save"), preset_row_);
+	preset_delete_button_ = new QPushButton(text("Preset.Delete"), preset_row_);
+	preset_layout->addWidget(preset_label);
+	preset_layout->addWidget(preset_combo_, 1);
+	preset_layout->addWidget(preset_load_button_);
+	preset_layout->addWidget(preset_save_button_);
+	preset_layout->addWidget(preset_delete_button_);
+	preset_row_->setVisible(false);
 
 	// 自動の適用と元に戻す
 	undo_button_ = new QPushButton(text("Undo"), content);
@@ -166,6 +190,7 @@ CommentSkinDock::CommentSkinDock(QWidget *parent) : QWidget(parent)
 	layout->addWidget(target_hint_label_);
 	layout->addWidget(settings_label_);
 	layout->addWidget(preview_);
+	layout->addWidget(preset_row_);
 	layout->addWidget(youtube_panel_);
 	layout->addLayout(action_row);
 	layout->addWidget(apply_hint_label);
@@ -190,7 +215,14 @@ CommentSkinDock::CommentSkinDock(QWidget *parent) : QWidget(parent)
 	connect(apply_timer_, &QTimer::timeout, this, &CommentSkinDock::apply_pending);
 	connect(undo_button_, &QPushButton::clicked, this, &CommentSkinDock::on_undo);
 	connect(copy_css_button_, &QPushButton::clicked, this, &CommentSkinDock::on_copy_css);
-	connect(youtube_panel_, &YouTubeSettingsPanel::changed, this, &CommentSkinDock::on_settings_changed);
+	connect(youtube_panel_, &SettingsPanel::changed, this, &CommentSkinDock::on_settings_changed);
+	connect(preset_load_button_, &QPushButton::clicked, this, &CommentSkinDock::on_preset_load);
+	connect(preset_save_button_, &QPushButton::clicked, this, &CommentSkinDock::on_preset_save);
+	connect(preset_delete_button_, &QPushButton::clicked, this, &CommentSkinDock::on_preset_delete);
+	connect(preset_combo_, &QComboBox::currentIndexChanged, this, [this](int index) {
+		preset_load_button_->setEnabled(index >= 0);
+		preset_delete_button_->setEnabled(index >= 0);
+	});
 	connect(css_toggle_button_, &QToolButton::toggled, this, [this](bool open) {
 		css_toggle_button_->setArrowType(open ? Qt::DownArrow : Qt::RightArrow);
 		css_view_->setVisible(open);
@@ -244,7 +276,7 @@ core::ChatTarget CommentSkinDock::current_target() const
 std::string CommentSkinDock::generated_css() const
 {
 	if (current_target() == core::ChatTarget::YouTube)
-		return core::generate_youtube_css(youtube_panel_->style());
+		return core::generate_youtube_css(youtube_panel_->values());
 	return {};
 }
 
@@ -261,6 +293,7 @@ void CommentSkinDock::update_view()
 		settings_label_->setVisible(false);
 		youtube_panel_->setVisible(false);
 		preview_->setVisible(false);
+		preset_row_->setVisible(false);
 		undo_button_->setEnabled(false);
 	} else {
 		const SourceState state = load_source_state(source);
@@ -279,9 +312,12 @@ void CommentSkinDock::update_view()
 
 		const bool youtube = target == core::ChatTarget::YouTube;
 		if (youtube)
-			youtube_panel_->set_style(load_youtube_style(source));
+			youtube_panel_->set_values(load_youtube_style(source));
 		youtube_panel_->setVisible(youtube);
 		preview_->setVisible(youtube);
+		preset_row_->setVisible(youtube);
+		if (youtube)
+			refresh_presets(preset_combo_->currentText());
 		settings_label_->setVisible(target == core::ChatTarget::Twitch);
 		settings_label_->setText(text("Settings.TwitchUnsupported"));
 
@@ -301,6 +337,91 @@ void CommentSkinDock::update_css_view()
 	preview_->set_css(css);
 }
 
+void CommentSkinDock::refresh_presets(const QString &select_name)
+{
+	const core::ChatTarget target = current_target();
+	const QSignalBlocker blocker(preset_combo_);
+	preset_combo_->clear();
+	for (const auto &preset : load_presets())
+		if (preset.target == target)
+			preset_combo_->addItem(QString::fromStdString(preset.name));
+	preset_combo_->setCurrentIndex(select_name.isEmpty() ? -1 : preset_combo_->findText(select_name));
+	preset_load_button_->setEnabled(preset_combo_->currentIndex() >= 0);
+	preset_delete_button_->setEnabled(preset_combo_->currentIndex() >= 0);
+}
+
+void CommentSkinDock::on_preset_save()
+{
+	const core::ChatTarget target = current_target();
+	if (target != core::ChatTarget::YouTube)
+		return;
+	bool ok = false;
+	const QString name = QInputDialog::getText(this, text("Preset.SaveTitle"), text("Preset.SaveName"),
+						   QLineEdit::Normal, preset_combo_->currentText(), &ok)
+				     .trimmed();
+	if (!ok || name.isEmpty())
+		return;
+
+	std::vector<Preset> presets = load_presets();
+	const std::string key = name.toStdString();
+	auto it = std::find_if(presets.begin(), presets.end(),
+			       [&](const Preset &p) { return p.target == target && p.name == key; });
+	if (it != presets.end()) {
+		if (QMessageBox::question(this, text("Preset.SaveTitle"), text("Preset.Overwrite").arg(name)) !=
+		    QMessageBox::Yes)
+			return;
+		it->values = youtube_panel_->values();
+	} else {
+		presets.push_back(Preset{key, target, youtube_panel_->values()});
+	}
+	if (!save_presets(presets)) {
+		set_status(text("Preset.SaveFailed"));
+		return;
+	}
+	refresh_presets(name);
+	set_status(text("Preset.Saved").arg(name));
+}
+
+void CommentSkinDock::on_preset_load()
+{
+	const QString name = preset_combo_->currentText();
+	if (preset_combo_->currentIndex() < 0)
+		return;
+	const core::ChatTarget target = current_target();
+	for (const auto &preset : load_presets()) {
+		if (preset.target != target || preset.name != name.toStdString())
+			continue;
+		// 欄に写したうえで、設定を変えたときと同じ経路で保存と自動の適用を行う
+		youtube_panel_->set_values(preset.values);
+		on_settings_changed();
+		set_status(text("Preset.Loaded").arg(name));
+		return;
+	}
+	set_status(text("Preset.NotFound"));
+	refresh_presets();
+}
+
+void CommentSkinDock::on_preset_delete()
+{
+	const QString name = preset_combo_->currentText();
+	if (preset_combo_->currentIndex() < 0)
+		return;
+	if (QMessageBox::question(this, text("Preset"), text("Preset.ConfirmDelete").arg(name)) != QMessageBox::Yes)
+		return;
+	const core::ChatTarget target = current_target();
+	std::vector<Preset> presets = load_presets();
+	presets.erase(
+		std::remove_if(presets.begin(), presets.end(),
+			       [&](const Preset &p) { return p.target == target && p.name == name.toStdString(); }),
+		presets.end());
+	if (!save_presets(presets)) {
+		set_status(text("Preset.SaveFailed"));
+		return;
+	}
+	refresh_presets();
+	set_status(text("Preset.Deleted").arg(name));
+}
+
 void CommentSkinDock::shutdown()
 {
 	apply_timer_->stop();
@@ -315,7 +436,7 @@ void CommentSkinDock::on_settings_changed()
 		return;
 	const bool youtube = current_target() == core::ChatTarget::YouTube;
 	if (youtube)
-		save_youtube_style(source, youtube_panel_->style());
+		save_youtube_style(source, youtube_panel_->values());
 	obs_source_release(source);
 	update_css_view();
 
@@ -445,7 +566,7 @@ void CommentSkinDock::on_undo()
 	}
 
 	clear_apply_record(source);
-	save_youtube_style(source, core::YouTubeStyle{});
+	save_youtube_style(source, core::StyleValues{});
 	set_source_css(source, state.previous_css);
 	obs_log(LOG_INFO, "restored previous CSS of browser source '%s'", name.toUtf8().constData());
 	obs_source_release(source);
