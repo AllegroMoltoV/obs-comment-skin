@@ -71,7 +71,7 @@ div.chat-line__message[role=group][data-a-target=chat-line-message]
 
 ### バッジ
 
-バッジは `img.chat-badge` で、画像の URL の `badges/v1/<ID>/` に ID があります。`alt` は表示の言語の文字列で、日本語では「モデレーターバッジ」「16ヶ月のサブスクライバー（1年バッジ）バッジ」のような形でした。
+バッジは `img.chat-badge` で、画像の URL の `badges/v1/<ID>/` に ID があります。`alt` は表示の言語の文字列で、日本語では「モデレーターバッジ」のような形でした。サブスクライバーのバッジの `alt` は、継続の月数と年数のバッジ名を含む文字列でした。
 
 | 種別 | 観測 | ID |
 | --- | --- | --- |
