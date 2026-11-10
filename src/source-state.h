@@ -19,6 +19,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #pragma once
 
 #include "core/chat-target.h"
+#include "core/youtube-style.h"
 
 #include <obs.h>
 
@@ -38,6 +39,9 @@ SourceState load_source_state(obs_source_t *source);
 void save_chosen_target(obs_source_t *source, core::ChatTarget target);
 void save_apply_record(obs_source_t *source, const std::string &previous_css, const std::string &applied_css);
 void clear_apply_record(obs_source_t *source);
+
+core::YouTubeStyle load_youtube_style(obs_source_t *source);
+void save_youtube_style(obs_source_t *source, const core::YouTubeStyle &style);
 
 std::string get_source_url(obs_source_t *source);
 std::string get_source_css(obs_source_t *source);

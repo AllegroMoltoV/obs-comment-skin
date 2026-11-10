@@ -20,6 +20,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include "core/chat-target.h"
 #include "core/managed-css.h"
+#include "core/youtube-style.h"
 
 #include <iostream>
 #include <optional>
@@ -166,6 +167,52 @@ void test_twitch_popout_url()
 	CHECK(!twitch_popout_url("").has_value());
 }
 
+void test_hex_color()
+{
+	CHECK((parse_hex_color("#1a2B3c") == Rgb{0x1a, 0x2b, 0x3c}));
+	CHECK((to_hex_color(Rgb{0x1a, 0x2b, 0x3c}) == "#1a2b3c"));
+	CHECK(!parse_hex_color("1a2b3c").has_value());
+	CHECK(!parse_hex_color("#1a2b3").has_value());
+	CHECK(!parse_hex_color("#1a2b3g").has_value());
+	CHECK(!parse_hex_color("red").has_value());
+	CHECK(!parse_hex_color("#000000; } @import url(x) {").has_value());
+}
+
+void test_youtube_css_empty()
+{
+	CHECK(generate_youtube_css(YouTubeStyle{}).empty());
+}
+
+void test_youtube_css_values()
+{
+	YouTubeStyle style;
+	style.message_font_size = 24;
+	style.message_color = Rgb{255, 255, 0};
+	style.background_color = Rgb{0, 0, 0};
+	style.background_opacity = 50;
+	const std::string css = generate_youtube_css(style);
+	CHECK(css.find("font-size: 24px !important;") != std::string::npos);
+	CHECK(css.find("color: rgb(255, 255, 0) !important;") != std::string::npos);
+	CHECK(css.find("background-color: rgba(0, 0, 0, 0.5) !important;") != std::string::npos);
+	CHECK(css.find("@import") == std::string::npos);
+	CHECK(css.find("url(") == std::string::npos);
+}
+
+void test_youtube_css_clamps_and_alpha()
+{
+	YouTubeStyle style;
+	style.message_font_size = 1000;
+	style.background_color = Rgb{1, 2, 3};
+	const int percents[] = {0, 5, 35, 99, 100, 150, -5};
+	const char *expected[] = {"0)", "0.05)", "0.35)", "0.99)", "1)", "1)", "0)"};
+	for (size_t i = 0; i < 7; ++i) {
+		style.background_opacity = percents[i];
+		const std::string css = generate_youtube_css(style);
+		CHECK(css.find("rgba(1, 2, 3, " + std::string(expected[i])) != std::string::npos);
+		CHECK(css.find("font-size: " + std::to_string(FONT_SIZE_MAX) + "px") != std::string::npos);
+	}
+}
+
 } // namespace
 
 int main()
@@ -180,6 +227,10 @@ int main()
 	test_target_string_round_trip();
 	test_youtube_popout_url();
 	test_twitch_popout_url();
+	test_hex_color();
+	test_youtube_css_empty();
+	test_youtube_css_values();
+	test_youtube_css_clamps_and_alpha();
 
 	if (failures > 0) {
 		std::cerr << failures << " check(s) failed\n";

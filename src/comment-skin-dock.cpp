@@ -20,6 +20,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include "core/managed-css.h"
 #include "create-source-dialog.h"
+#include "settings-widgets.h"
 #include "source-state.h"
 
 #include <obs-module.h>
@@ -123,6 +124,8 @@ CommentSkinDock::CommentSkinDock(QWidget *parent) : QWidget(parent)
 	// 設定の項目
 	settings_label_ = new QLabel(content);
 	settings_label_->setWordWrap(true);
+	youtube_panel_ = new YouTubeSettingsPanel(content);
+	youtube_panel_->setVisible(false);
 
 	// 適用と元に戻す
 	apply_button_ = new QPushButton(text("Apply"), content);
@@ -156,6 +159,7 @@ CommentSkinDock::CommentSkinDock(QWidget *parent) : QWidget(parent)
 	layout->addWidget(target_combo_);
 	layout->addWidget(target_hint_label_);
 	layout->addWidget(settings_label_);
+	layout->addWidget(youtube_panel_);
 	layout->addLayout(action_row);
 	layout->addWidget(apply_hint_label);
 	layout->addWidget(css_toggle_button_);
@@ -179,6 +183,7 @@ CommentSkinDock::CommentSkinDock(QWidget *parent) : QWidget(parent)
 	connect(apply_button_, &QPushButton::clicked, this, &CommentSkinDock::on_apply);
 	connect(undo_button_, &QPushButton::clicked, this, &CommentSkinDock::on_undo);
 	connect(copy_css_button_, &QPushButton::clicked, this, &CommentSkinDock::on_copy_css);
+	connect(youtube_panel_, &YouTubeSettingsPanel::changed, this, &CommentSkinDock::on_settings_changed);
 	connect(css_toggle_button_, &QToolButton::toggled, this, [this](bool open) {
 		css_toggle_button_->setArrowType(open ? Qt::DownArrow : Qt::RightArrow);
 		css_view_->setVisible(open);
@@ -228,7 +233,8 @@ core::ChatTarget CommentSkinDock::current_target() const
 
 std::string CommentSkinDock::generated_css() const
 {
-	// 設定の項目はまだ無いため、管理範囲の中身は空になる
+	if (current_target() == core::ChatTarget::YouTube)
+		return core::generate_youtube_css(youtube_panel_->style());
 	return {};
 }
 
@@ -242,6 +248,8 @@ void CommentSkinDock::update_view()
 		target_combo_->setEnabled(false);
 		target_hint_label_->clear();
 		settings_label_->clear();
+		settings_label_->setVisible(false);
+		youtube_panel_->setVisible(false);
 		apply_button_->setEnabled(false);
 		undo_button_->setEnabled(false);
 	} else {
@@ -259,27 +267,38 @@ void CommentSkinDock::update_view()
 		else
 			target_hint_label_->setText(text("ChatTarget.Undetected"));
 
-		switch (target) {
-		case core::ChatTarget::YouTube:
-			settings_label_->setText(text("Settings.Empty"));
-			break;
-		case core::ChatTarget::Twitch:
-			settings_label_->setText(text("Settings.TwitchUnsupported"));
-			break;
-		case core::ChatTarget::Unknown:
-			settings_label_->clear();
-			break;
-		}
+		const bool youtube = target == core::ChatTarget::YouTube;
+		if (youtube)
+			youtube_panel_->set_style(load_youtube_style(source));
+		youtube_panel_->setVisible(youtube);
+		settings_label_->setVisible(target == core::ChatTarget::Twitch);
+		settings_label_->setText(text("Settings.TwitchUnsupported"));
 
-		apply_button_->setEnabled(target == core::ChatTarget::YouTube);
+		apply_button_->setEnabled(youtube);
 		undo_button_->setEnabled(state.has_previous);
 		obs_source_release(source);
 	}
 	target_combo_->blockSignals(false);
 
+	update_css_view();
+}
+
+void CommentSkinDock::update_css_view()
+{
 	const std::string css = generated_css();
 	css_view_->setPlainText(css.empty() ? text("GeneratedCss.Empty") : QString::fromStdString(css));
 	copy_css_button_->setEnabled(!css.empty());
+}
+
+void CommentSkinDock::on_settings_changed()
+{
+	obs_source_t *source = selected_source();
+	if (!source)
+		return;
+	if (current_target() == core::ChatTarget::YouTube)
+		save_youtube_style(source, youtube_panel_->style());
+	obs_source_release(source);
+	update_css_view();
 }
 
 void CommentSkinDock::set_status(const QString &message)
