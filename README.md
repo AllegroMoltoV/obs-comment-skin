@@ -4,6 +4,8 @@ OBS Studio のブラウザーソースに表示した YouTube と Twitch のチ�
 
 A plugin for OBS Studio that restyles the YouTube and Twitch chat shown in a browser source from a dock, without writing CSS.
 
+[配信プラグイン倉庫くん](https://soko-kun.allegromoltov.jp/plugins/allegromoltov/obs-comment-skin) にも掲載しています。 / Also listed on [Plugin Soko-kun](https://soko-kun.allegromoltov.jp/plugins/allegromoltov/obs-comment-skin?lang=en).
+
 ![OBS Studio のドックでコメント欄の着せ替えの設定を変え、プレビューと配信画面のチャットの見た目が変わる様子](docs/images/obs-comment-skin.gif)
 
 本プラグインは YouTube および Twitch とは提携しておらず、両社の承認を受けたものではありません。
