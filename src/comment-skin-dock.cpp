@@ -127,14 +127,17 @@ CommentSkinDock::CommentSkinDock(QWidget *parent) : QWidget(parent)
 	youtube_panel_ = new YouTubeSettingsPanel(content);
 	youtube_panel_->setVisible(false);
 
-	// 適用と元に戻す
-	apply_button_ = new QPushButton(text("Apply"), content);
+	// 自動の適用と元に戻す
 	undo_button_ = new QPushButton(text("Undo"), content);
+	undo_button_->setToolTip(text("Undo.Tooltip"));
 	auto *action_row = new QHBoxLayout();
-	action_row->addWidget(apply_button_, 1);
+	action_row->addStretch();
 	action_row->addWidget(undo_button_);
 	auto *apply_hint_label = new QLabel(text("ApplyHint"), content);
 	apply_hint_label->setWordWrap(true);
+	apply_timer_ = new QTimer(this);
+	apply_timer_->setSingleShot(true);
+	apply_timer_->setInterval(APPLY_DELAY_MS);
 
 	// 生成した CSS
 	css_toggle_button_ = new QToolButton(content);
@@ -180,7 +183,7 @@ CommentSkinDock::CommentSkinDock(QWidget *parent) : QWidget(parent)
 	connect(source_combo_, &QComboBox::currentIndexChanged, this, &CommentSkinDock::on_source_changed);
 	connect(create_source_button_, &QPushButton::clicked, this, &CommentSkinDock::on_create_source);
 	connect(target_combo_, &QComboBox::currentIndexChanged, this, &CommentSkinDock::on_target_changed);
-	connect(apply_button_, &QPushButton::clicked, this, &CommentSkinDock::on_apply);
+	connect(apply_timer_, &QTimer::timeout, this, &CommentSkinDock::apply_pending);
 	connect(undo_button_, &QPushButton::clicked, this, &CommentSkinDock::on_undo);
 	connect(copy_css_button_, &QPushButton::clicked, this, &CommentSkinDock::on_copy_css);
 	connect(youtube_panel_, &YouTubeSettingsPanel::changed, this, &CommentSkinDock::on_settings_changed);
@@ -212,6 +215,9 @@ void CommentSkinDock::refresh_sources()
 
 void CommentSkinDock::clear_sources()
 {
+	// シーンコレクションを片付けている間に、消えていくソースへ適用しないようにする
+	apply_timer_->stop();
+	pending_uuid_.clear();
 	source_combo_->blockSignals(true);
 	source_combo_->clear();
 	source_combo_->blockSignals(false);
@@ -250,7 +256,6 @@ void CommentSkinDock::update_view()
 		settings_label_->clear();
 		settings_label_->setVisible(false);
 		youtube_panel_->setVisible(false);
-		apply_button_->setEnabled(false);
 		undo_button_->setEnabled(false);
 	} else {
 		const SourceState state = load_source_state(source);
@@ -274,7 +279,6 @@ void CommentSkinDock::update_view()
 		settings_label_->setVisible(target == core::ChatTarget::Twitch);
 		settings_label_->setText(text("Settings.TwitchUnsupported"));
 
-		apply_button_->setEnabled(youtube);
 		undo_button_->setEnabled(state.has_previous);
 		obs_source_release(source);
 	}
@@ -295,10 +299,16 @@ void CommentSkinDock::on_settings_changed()
 	obs_source_t *source = selected_source();
 	if (!source)
 		return;
-	if (current_target() == core::ChatTarget::YouTube)
+	const bool youtube = current_target() == core::ChatTarget::YouTube;
+	if (youtube)
 		save_youtube_style(source, youtube_panel_->style());
 	obs_source_release(source);
 	update_css_view();
+
+	if (youtube) {
+		pending_uuid_ = source_combo_->currentData().toString();
+		apply_timer_->start();
+	}
 }
 
 void CommentSkinDock::set_status(const QString &message)
@@ -339,40 +349,61 @@ void CommentSkinDock::on_create_source()
 	set_status(text("CreateSource.Created"));
 }
 
-void CommentSkinDock::on_apply()
+void CommentSkinDock::apply_pending()
 {
-	obs_source_t *source = selected_source();
-	if (!source) {
-		set_status(text("SourceNotFound"));
-		refresh_sources();
+	const QString uuid = std::exchange(pending_uuid_, QString());
+	if (uuid.isEmpty())
 		return;
-	}
+	obs_source_t *source = obs_get_source_by_uuid(uuid.toUtf8().constData());
+	if (!source)
+		return;
 	const QString name = source_name(source);
 
+	// 選択が変わっていても、変更したソースの保存済みの設定から CSS を作る
+	const SourceState state = load_source_state(source);
+	const core::ChatTarget target = state.chosen_target != core::ChatTarget::Unknown
+						? state.chosen_target
+						: core::detect_target(get_source_url(source));
+	if (target != core::ChatTarget::YouTube) {
+		obs_source_release(source);
+		return;
+	}
+
 	const std::string current = get_source_css(source);
-	const auto updated = core::replace_block(current, generated_css());
+	const auto updated = core::replace_block(current, core::generate_youtube_css(load_youtube_style(source)));
 	if (!updated) {
 		obs_source_release(source);
-		QMessageBox::warning(this, text("DockTitle"), text("Apply.BrokenMarkers"));
+		set_status(text("Apply.BrokenMarkers"));
 		return;
 	}
 	if (*updated == current) {
 		obs_source_release(source);
-		set_status(text("Apply.NoChange"));
 		return;
 	}
 
-	save_apply_record(source, current, *updated);
+	// 元に戻す先は、プラグインが最初に書き換える前の css にする
+	save_apply_record(source, state.has_previous ? state.previous_css : current, *updated);
 	set_source_css(source, *updated);
 	obs_log(LOG_INFO, "applied CSS to browser source '%s'", name.toUtf8().constData());
 	obs_source_release(source);
 
 	set_status(text("Apply.Done").arg(name));
-	update_view();
+	if (uuid == source_combo_->currentData().toString())
+		undo_button_->setEnabled(true);
 }
 
 void CommentSkinDock::on_undo()
 {
+	// 待っている適用が後から走ると、戻した css をまた書き換えてしまう。
+	// 同じソースへの適用は戻すため捨て、別のソースへの適用はその場で済ませる
+	if (apply_timer_->isActive()) {
+		apply_timer_->stop();
+		if (pending_uuid_ == source_combo_->currentData().toString())
+			pending_uuid_.clear();
+		else
+			apply_pending();
+	}
+
 	obs_source_t *source = selected_source();
 	if (!source) {
 		set_status(text("SourceNotFound"));
@@ -400,6 +431,7 @@ void CommentSkinDock::on_undo()
 	}
 
 	clear_apply_record(source);
+	save_youtube_style(source, core::YouTubeStyle{});
 	set_source_css(source, state.previous_css);
 	obs_log(LOG_INFO, "restored previous CSS of browser source '%s'", name.toUtf8().constData());
 	obs_source_release(source);

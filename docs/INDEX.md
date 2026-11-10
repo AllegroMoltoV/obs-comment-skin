@@ -22,3 +22,5 @@ context compaction で文脈が失われた場合は、この索引から必要�
 - [2026-11-10 css の書き換えによる再読み込みと CSS の反映の実機確認](reports/2026-11-10-css-reload-check.md): 読み込み直しの有無、CEF 150 での `:has()` の対応、未ログインの表示の `dark` 属性、配信者の発言の `author-type=owner`、CDP での調べ方
 - [2026-11-10 適用と保存の土台](reports/2026-11-10-apply-foundation.md): 管理範囲の置換、URL の判別、private settings に置く状態、単体テスト、UI Automation でのドックの操作による確認
 - [2026-11-10 YouTube の最小の項目](reports/2026-11-10-youtube-minimal-items.md): YouTube の既定のスタイル、文字の大きさ・文字の色・背景色と不透明度の生成規則、ドックからの適用の確認
+- [2026-11-10 ユーザーテスト c1](reports/2026-11-10-usability-c1.md): 4 つの課題の達成、適用ボタンを押すまで反映されないことへの戸惑い
+- [2026-11-10 設定の変更の自動の適用](reports/2026-11-10-auto-apply.md): 自動の適用と元に戻す操作の意味、反映までの時間、連続した適用での安定性

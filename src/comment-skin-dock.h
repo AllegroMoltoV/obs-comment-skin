@@ -26,6 +26,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <QLabel>
 #include <QPlainTextEdit>
 #include <QPushButton>
+#include <QTimer>
 #include <QToolButton>
 #include <QWidget>
 
@@ -60,10 +61,10 @@ private slots:
 	void on_source_changed();
 	void on_target_changed();
 	void on_create_source();
-	void on_apply();
 	void on_undo();
 	void on_copy_css();
 	void on_settings_changed();
+	void apply_pending();
 
 private:
 	// 選択中のソース。参照を 1 つ持つため、呼び出し側が obs_source_release() で返す
@@ -74,14 +75,18 @@ private:
 	void update_css_view();
 	void set_status(const QString &message);
 
+	// 1 回の操作で起きる連続した変更をまとめるための待ち時間
+	static constexpr int APPLY_DELAY_MS = 150;
+
 	SourceComboBox *source_combo_{nullptr};
 	QPushButton *create_source_button_{nullptr};
 	QComboBox *target_combo_{nullptr};
 	QLabel *target_hint_label_{nullptr};
 	QLabel *settings_label_{nullptr};
 	YouTubeSettingsPanel *youtube_panel_{nullptr};
-	QPushButton *apply_button_{nullptr};
 	QPushButton *undo_button_{nullptr};
+	QTimer *apply_timer_{nullptr};
+	QString pending_uuid_; // 適用を待っているソース
 	QToolButton *css_toggle_button_{nullptr};
 	QPlainTextEdit *css_view_{nullptr};
 	QPushButton *copy_css_button_{nullptr};
