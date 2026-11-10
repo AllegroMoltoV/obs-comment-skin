@@ -155,7 +155,10 @@ void CommentSkinDock::on_write_test_css()
 
 	const QString stamp = QDateTime::currentDateTime().toString(Qt::ISODate);
 	const QString block = TEST_CSS_BEGIN + QStringLiteral("\n/* written at ") + stamp +
-			      QStringLiteral(" */\nbody { outline: 4px solid #e53935; outline-offset: -4px; }\n") +
+			      QStringLiteral(" */\nbody { outline: 4px solid #e53935; outline-offset: -4px; }\n"
+					     "html:not([dark]) body { outline-color: #1e88e5; }\n"
+					     "yt-live-chat-text-message-renderer:has(#author-name.member) "
+					     "{ background-color: rgba(0, 200, 0, 0.35) !important; }\n") +
 			      TEST_CSS_END;
 	const QByteArray new_css = replace_test_block(current_css, block).toUtf8();
 
