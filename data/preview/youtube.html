@@ -35,6 +35,8 @@
   yt-live-chat-paid-message-renderer yt-img-shadow#author-photo, yt-live-chat-membership-item-renderer yt-img-shadow#author-photo { width: 40px; height: 40px; }
   yt-live-chat-paid-message-renderer #author-name, yt-live-chat-membership-item-renderer #author-name { display: block; color: rgba(255, 255, 255, 0.8); background: none; padding: 0; }
   #purchase-amount, #header-subtext { display: block; font-weight: 500; font-size: 15px; }
+  yt-live-chat-paid-message-renderer #header-content, yt-live-chat-paid-message-renderer #header-content-primary-column { display: flex; flex: 1 1 0; }
+  yt-live-chat-paid-message-renderer #single-line { display: flex; flex-wrap: nowrap; align-items: baseline; gap: 8px; }
   yt-live-chat-paid-message-renderer #header { background-color: #1565c0; }
   yt-live-chat-paid-message-renderer #content { padding: 8px 16px; background-color: #1e88e5; }
   yt-live-chat-membership-item-renderer #header, yt-live-chat-membership-item-renderer #content { background-color: #0f9d58; }
@@ -87,8 +89,12 @@
           <div id="header">
             <yt-img-shadow id="author-photo" style="background:#ab47bc">そ</yt-img-shadow>
             <div id="header-content">
-              <span id="author-name">そらまめ</span>
-              <span id="purchase-amount">¥500</span>
+              <div id="header-content-primary-column">
+                <div id="single-line">
+                  <div id="author-name-chip"><yt-live-chat-author-chip><span id="author-name">そらまめ</span></yt-live-chat-author-chip></div>
+                  <div id="purchase-amount-column"><div id="purchase-amount">¥500</div></div>
+                </div>
+              </div>
             </div>
           </div>
           <div id="content"><div id="message">配信おつかれさまです!</div></div>

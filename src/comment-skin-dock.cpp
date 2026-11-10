@@ -173,8 +173,6 @@ CommentSkinDock::CommentSkinDock(QWidget *parent) : QWidget(parent)
 	auto *action_row = new QHBoxLayout();
 	action_row->addStretch();
 	action_row->addWidget(undo_button_);
-	auto *apply_hint_label = new QLabel(text("ApplyHint"), content);
-	apply_hint_label->setWordWrap(true);
 	apply_timer_ = new QTimer(this);
 	apply_timer_->setSingleShot(true);
 	apply_timer_->setInterval(APPLY_DELAY_MS);
@@ -205,7 +203,6 @@ CommentSkinDock::CommentSkinDock(QWidget *parent) : QWidget(parent)
 	layout->addWidget(preset_row_);
 	layout->addWidget(youtube_panel_);
 	layout->addLayout(action_row);
-	layout->addWidget(apply_hint_label);
 	layout->addWidget(css_toggle_button_);
 	layout->addWidget(css_view_);
 	layout->addWidget(copy_css_button_);

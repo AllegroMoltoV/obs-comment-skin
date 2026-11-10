@@ -208,6 +208,12 @@ void write_message(CssWriter &css, const Reader &r)
 		css.add(message, "letter-spacing", px(*spacing));
 	if (r.toggle("message_new_line"))
 		css.add(message, "display", "block");
+	if (r.number("message_font_size") || r.number("message_letter_spacing")) {
+		// 本文を包む #content は flex の子で、空白の無い長い文字列より狭くなれない。
+		// 文字を大きくしたときや字間を広げたときにメッセージの右端で切り取られないよう、幅を抑えてどこでも折り返す
+		css.add(under(TEXT, "#content"), "min-width", "0");
+		css.add(message, "overflow-wrap", "anywhere");
+	}
 }
 
 void write_name(CssWriter &css, const Reader &r)
@@ -325,8 +331,13 @@ void write_paid(CssWriter &css, const Reader &r)
 	if (r.number("paid_name_font_size") || r.number("paid_amount_font_size")) {
 		// 名前と金額の列は flex の子で、空白の無い文字列は折り返されない。
 		// 文字を大きくしたときに枠の右端で切り取られないよう、幅を抑えてどこでも折り返す
-		css.add(join_selectors({under(PAID, "#header-content"), under(MEMBERSHIP, "#header-content")}),
+		css.add(join_selectors({under(PAID, "#header-content"), under(MEMBERSHIP, "#header-content"),
+					under(PAID, "#header-content-primary-column"), under(PAID, "#author-name-chip"),
+					under(PAID, "#purchase-amount-column"), under(PAID, "#purchase-amount")}),
 			"min-width", "0");
+		// Super Chat は名前と金額を折り返さない 1 行の枠 #single-line に並べるため、大きくすると金額が切り取られる
+		css.add(under(PAID, "#single-line"), "flex-wrap", "wrap");
+		css.add(under(PAID, "#single-line"), "min-width", "0");
 		css.add(join_selectors({under(PAID, "#author-name"), under(MEMBERSHIP, "#author-name"),
 					under(PAID, "#purchase-amount"), under(MEMBERSHIP, "#header-subtext")}),
 			"overflow-wrap", "anywhere");
