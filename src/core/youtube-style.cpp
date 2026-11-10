@@ -214,6 +214,13 @@ void write_name(CssWriter &css, const Reader &r)
 {
 	const std::string name = under(TEXT, "#author-name");
 	add_font(css, r, name, "name_font", "name_font_size", {});
+	if (r.number("name_font_size")) {
+		// 名前を包む部品は inline-flex で、空白の無い長い名前は折り返されない。
+		// 文字を大きくしたときにメッセージの右端で切り取られないよう、幅を抑えてどこでも折り返す
+		css.add(under(TEXT, "yt-live-chat-author-chip"), "max-width", "100%");
+		css.add(name, "min-width", "0");
+		css.add(name, "overflow-wrap", "anywhere");
+	}
 	// 配信者・モデレーター・メンバーの名前は YouTube が色分けしているため、全体の色はそれ以外の名前に当てる
 	if (const auto c = r.color("name_color"))
 		css.add(name + ":not(.owner):not(.moderator):not(.member)", "color", rgb_text(*c));
@@ -315,6 +322,15 @@ void write_paid(CssWriter &css, const Reader &r)
 		 "paid_font", "paid_amount_font_size", "paid_amount_color");
 	add_font(css, r, join_selectors({under(PAID, "#message"), under(MEMBERSHIP, "#message")}), "paid_font",
 		 "paid_message_font_size", "paid_message_color");
+	if (r.number("paid_name_font_size") || r.number("paid_amount_font_size")) {
+		// 名前と金額の列は flex の子で、空白の無い文字列は折り返されない。
+		// 文字を大きくしたときに枠の右端で切り取られないよう、幅を抑えてどこでも折り返す
+		css.add(join_selectors({under(PAID, "#header-content"), under(MEMBERSHIP, "#header-content")}),
+			"min-width", "0");
+		css.add(join_selectors({under(PAID, "#author-name"), under(MEMBERSHIP, "#author-name"),
+					under(PAID, "#purchase-amount"), under(MEMBERSHIP, "#header-subtext")}),
+			"overflow-wrap", "anywhere");
+	}
 	if (!r.toggle("membership_background_visible"))
 		css.add(join_selectors({under(MEMBERSHIP, "#card"), under(MEMBERSHIP, "#header"),
 					under(MEMBERSHIP, "#content")}),

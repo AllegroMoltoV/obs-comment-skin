@@ -92,6 +92,7 @@ private:
 	QLabel *settings_label_{nullptr};
 	SettingsPanel *youtube_panel_{nullptr};
 	PreviewPanel *preview_{nullptr};
+	QLabel *preview_label_{nullptr};
 	QWidget *preset_row_{nullptr};
 	QComboBox *preset_combo_{nullptr};
 	QPushButton *preset_load_button_{nullptr};

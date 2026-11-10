@@ -73,6 +73,10 @@ if(ENABLE_TESTS)
   target_compile_features(comment-skin-core-tests PRIVATE cxx_std_17)
   target_include_directories(comment-skin-core-tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
   add_test(NAME core-tests COMMAND comment-skin-core-tests)
+  # 見た目の崩れの検査 (tools/layout-check) で当てる CSS を書き出す
+  add_executable(comment-skin-css-dump tests/css-dump.cpp ${CORE_SOURCES})
+  target_compile_features(comment-skin-css-dump PRIVATE cxx_std_17)
+  target_include_directories(comment-skin-css-dump PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 endif()
 
 # ビルド直後に cmake --install を実行する (Windows 開発用)

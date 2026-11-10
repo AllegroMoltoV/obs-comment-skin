@@ -54,6 +54,8 @@ CollapsibleSection::CollapsibleSection(const QString &title, bool expanded, QWid
 	body_ = new QWidget(this);
 	form_ = new QFormLayout(body_);
 	form_->setContentsMargins(16, 0, 0, 0);
+	// ドックが狭いときは、長い項目名を欄の上に置いて折り返す。ドックの最小の幅を抑えるため
+	form_->setRowWrapPolicy(QFormLayout::WrapLongRows);
 
 	auto *layout = new QVBoxLayout(this);
 	layout->setContentsMargins(0, 0, 0, 0);
@@ -139,7 +141,21 @@ SettingsPanel::SettingsPanel(const std::vector<core::SectionDef> &sections, QWid
 		for (const auto &item : section.items)
 			box->form()->addRow(locale_text(item.label_key), create_field(item));
 		layout->addWidget(box);
+		boxes_.push_back(box);
 	}
+}
+
+QSize SettingsPanel::expanded_minimum_size()
+{
+	std::vector<bool> states;
+	for (auto *box : boxes_) {
+		states.push_back(box->expanded());
+		box->set_expanded(true);
+	}
+	const QSize size = minimumSizeHint();
+	for (size_t i = 0; i < boxes_.size(); ++i)
+		boxes_[i]->set_expanded(states[i]);
+	return size;
 }
 
 QWidget *SettingsPanel::create_field(const core::ItemDef &item)

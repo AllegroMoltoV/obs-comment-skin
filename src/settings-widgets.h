@@ -44,6 +44,7 @@ public:
 
 	QFormLayout *form() const { return form_; }
 	void set_expanded(bool expanded);
+	bool expanded() const { return !body_->isHidden(); }
 
 private:
 	QToolButton *header_{nullptr};
@@ -83,10 +84,14 @@ public:
 	core::StyleValues values() const;
 	void set_values(const core::StyleValues &values);
 
+	// すべての区画を開いたときの最小の大きさ。閉じた区画の欄は大きさの計算に入らないため、一時的に開いて求める
+	QSize expanded_minimum_size();
+
 signals:
 	void changed();
 
 private:
+	std::vector<CollapsibleSection *> boxes_;
 	// 項目ごとの読み書き。read は値を values に足し、write は values から欄へ写す
 	struct Field {
 		std::function<void(core::StyleValues &)> read;

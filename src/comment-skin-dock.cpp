@@ -31,7 +31,9 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include <QApplication>
 #include <QClipboard>
+#include <QGridLayout>
 #include <QHBoxLayout>
+#include <QScrollBar>
 #include <QInputDialog>
 #include <QLineEdit>
 #include <QMessageBox>
@@ -132,12 +134,18 @@ CommentSkinDock::CommentSkinDock(QWidget *parent) : QWidget(parent)
 	settings_label_->setWordWrap(true);
 	youtube_panel_ = new SettingsPanel(core::youtube_sections(), content);
 	youtube_panel_->setVisible(false);
-	preview_ = new PreviewPanel(content);
+	// 見本はブラウザーの部品で、独立したウィンドウとして描かれる。スクロール領域の中では
+	// スクロールバーや表示範囲の外にはみ出して描かれるため、スクロール領域の外の上端に置く
+	preview_ = new PreviewPanel(this);
+	preview_label_ = new QLabel(text("Preview.Caption"), this);
+	preview_label_->setWordWrap(true);
+	preview_label_->setContentsMargins(8, 4, 8, 2);
+	preview_label_->setVisible(false);
 	preview_->setVisible(false);
 
 	// プリセット
 	preset_row_ = new QWidget(content);
-	auto *preset_layout = new QHBoxLayout(preset_row_);
+	auto *preset_layout = new QGridLayout(preset_row_);
 	preset_layout->setContentsMargins(0, 0, 0, 0);
 	auto *preset_label = new QLabel(text("Preset"), preset_row_);
 	preset_combo_ = new QComboBox(preset_row_);
@@ -147,11 +155,15 @@ CommentSkinDock::CommentSkinDock(QWidget *parent) : QWidget(parent)
 	preset_load_button_ = new QPushButton(text("Preset.Load"), preset_row_);
 	preset_save_button_ = new QPushButton(text("Preset.Save"), preset_row_);
 	preset_delete_button_ = new QPushButton(text("Preset.Delete"), preset_row_);
-	preset_layout->addWidget(preset_label);
-	preset_layout->addWidget(preset_combo_, 1);
-	preset_layout->addWidget(preset_load_button_);
-	preset_layout->addWidget(preset_save_button_);
-	preset_layout->addWidget(preset_delete_button_);
+	// ドックの最小の幅を抑えるため、ボタンは名前の欄の下の行に置く
+	auto *preset_buttons = new QHBoxLayout();
+	preset_buttons->addWidget(preset_load_button_);
+	preset_buttons->addWidget(preset_save_button_);
+	preset_buttons->addWidget(preset_delete_button_);
+	preset_layout->addWidget(preset_label, 0, 0);
+	preset_layout->addWidget(preset_combo_, 0, 1);
+	preset_layout->addLayout(preset_buttons, 1, 1);
+	preset_layout->setColumnStretch(1, 1);
 	preset_row_->setVisible(false);
 
 	// 自動の適用と元に戻す
@@ -189,7 +201,6 @@ CommentSkinDock::CommentSkinDock(QWidget *parent) : QWidget(parent)
 	layout->addWidget(target_combo_);
 	layout->addWidget(target_hint_label_);
 	layout->addWidget(settings_label_);
-	layout->addWidget(preview_);
 	layout->addWidget(preset_row_);
 	layout->addWidget(youtube_panel_);
 	layout->addLayout(action_row);
@@ -203,10 +214,27 @@ CommentSkinDock::CommentSkinDock(QWidget *parent) : QWidget(parent)
 	auto *scroll = new QScrollArea(this);
 	scroll->setWidgetResizable(true);
 	scroll->setFrameShape(QFrame::NoFrame);
+	scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 	scroll->setWidget(content);
 	auto *outer = new QVBoxLayout(this);
 	outer->setContentsMargins(0, 0, 0, 0);
-	outer->addWidget(scroll);
+	outer->addWidget(preview_label_);
+	outer->addWidget(preview_);
+	outer->addWidget(scroll, 1);
+
+	// 横にスクロールさせず、欄が右端で切れないよう、ドックの最小の幅を中身の最小の幅に合わせる。
+	// 非表示の欄と閉じた区画は大きさの計算に入らないため、一時的に表示して求める
+	youtube_panel_->setVisible(true);
+	preset_row_->setVisible(true);
+	settings_label_->setVisible(true);
+	const int panel_width = youtube_panel_->expanded_minimum_size().width() + layout->contentsMargins().left() +
+				layout->contentsMargins().right();
+	const int content_width = std::max(content->minimumSizeHint().width(), panel_width);
+	youtube_panel_->setVisible(false);
+	preset_row_->setVisible(false);
+	settings_label_->setVisible(false);
+	setMinimumWidth(content_width + scroll->verticalScrollBar()->sizeHint().width());
+	obs_log(LOG_INFO, "dock minimum width: %d", minimumWidth());
 
 	connect(source_combo_, &SourceComboBox::popup_requested, this, &CommentSkinDock::refresh_sources);
 	connect(source_combo_, &QComboBox::currentIndexChanged, this, &CommentSkinDock::on_source_changed);
@@ -293,6 +321,7 @@ void CommentSkinDock::update_view()
 		settings_label_->setVisible(false);
 		youtube_panel_->setVisible(false);
 		preview_->setVisible(false);
+		preview_label_->setVisible(false);
 		preset_row_->setVisible(false);
 		undo_button_->setEnabled(false);
 	} else {
@@ -315,6 +344,7 @@ void CommentSkinDock::update_view()
 			youtube_panel_->set_values(load_youtube_style(source));
 		youtube_panel_->setVisible(youtube);
 		preview_->setVisible(youtube);
+		preview_label_->setVisible(youtube);
 		preset_row_->setVisible(youtube);
 		if (youtube)
 			refresh_presets(preset_combo_->currentText());
