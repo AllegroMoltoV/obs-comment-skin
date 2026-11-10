@@ -44,6 +44,8 @@ file(
   "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/core/*.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/core/*.h"
 )
 
 file(GLOB_RECURSE PLUGIN_RESOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/data/locale/*.ini")
@@ -54,6 +56,17 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE ${PLUGIN_SOURCES} ${PLUGIN_RESOURCE
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" FILES ${PLUGIN_SOURCES} ${PLUGIN_RESOURCES})
 
 set_target_properties_plugin(${CMAKE_PROJECT_NAME} PROPERTIES OUTPUT_NAME ${_name})
+
+# OBS に依存しない src/core/ の単体テスト。CI のプリセットで有効にする
+option(ENABLE_TESTS "Build unit tests for src/core" OFF)
+if(ENABLE_TESTS)
+  enable_testing()
+  file(GLOB CORE_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/core/*.cpp")
+  add_executable(comment-skin-core-tests tests/core-tests.cpp ${CORE_SOURCES})
+  target_compile_features(comment-skin-core-tests PRIVATE cxx_std_17)
+  target_include_directories(comment-skin-core-tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
+  add_test(NAME core-tests COMMAND comment-skin-core-tests)
+endif()
 
 # ビルド直後に cmake --install を実行する (Windows 開発用)
 option(ENABLE_POST_BUILD_INSTALL "Run cmake --install after build" ON)

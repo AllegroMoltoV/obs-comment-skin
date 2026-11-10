@@ -18,10 +18,18 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include "comment-skin-dock.h"
 
+#include "core/managed-css.h"
+#include "create-source-dialog.h"
+#include "source-state.h"
+
 #include <obs-module.h>
 #include <plugin-support.h>
 
-#include <QDateTime>
+#include <QApplication>
+#include <QClipboard>
+#include <QHBoxLayout>
+#include <QMessageBox>
+#include <QScrollArea>
 #include <QString>
 #include <QVBoxLayout>
 
@@ -35,13 +43,27 @@ namespace {
 
 constexpr const char *BROWSER_SOURCE_ID = "browser_source";
 
-// テスト用 CSS の範囲を示す目印。書き込むたびにこの範囲だけを置き換える
-const QString TEST_CSS_BEGIN = QStringLiteral("/* comment-skin test begin */");
-const QString TEST_CSS_END = QStringLiteral("/* comment-skin test end */");
-
 QString text(const char *key)
 {
 	return QString::fromUtf8(obs_module_text(key));
+}
+
+QString target_display_name(core::ChatTarget target)
+{
+	switch (target) {
+	case core::ChatTarget::YouTube:
+		return QStringLiteral("YouTube");
+	case core::ChatTarget::Twitch:
+		return QStringLiteral("Twitch");
+	case core::ChatTarget::Unknown:
+		break;
+	}
+	return {};
+}
+
+QString target_data(core::ChatTarget target)
+{
+	return QString::fromUtf8(core::target_to_string(target).data());
 }
 
 // 候補の名前と UUID。UUID で選ぶと、名前を変えられても同じソースを指せる
@@ -59,20 +81,9 @@ bool collect_browser_source(void *param, obs_source_t *source)
 	return true;
 }
 
-QString replace_test_block(const QString &css, const QString &block)
+QString source_name(obs_source_t *source)
 {
-	QString result = css;
-	const qsizetype begin = result.indexOf(TEST_CSS_BEGIN);
-	if (begin >= 0) {
-		const qsizetype end = result.indexOf(TEST_CSS_END, begin);
-		if (end >= 0)
-			result.remove(begin, end + TEST_CSS_END.size() - begin);
-	}
-	while (result.endsWith(QLatin1Char('\n')))
-		result.chop(1);
-	if (!result.isEmpty())
-		result += QLatin1Char('\n');
-	return result + block;
+	return QString::fromUtf8(obs_source_get_name(source));
 }
 
 } // namespace
@@ -85,25 +96,94 @@ void SourceComboBox::showPopup()
 
 CommentSkinDock::CommentSkinDock(QWidget *parent) : QWidget(parent)
 {
-	auto *layout = new QVBoxLayout(this);
+	auto *content = new QWidget();
+	auto *layout = new QVBoxLayout(content);
 
-	auto *source_label = new QLabel(text("BrowserSource"), this);
-	source_combo_ = new SourceComboBox(this);
+	// ブラウザーソース
+	auto *source_label = new QLabel(text("BrowserSource"), content);
+	source_combo_ = new SourceComboBox(content);
+	source_combo_->setPlaceholderText(text("NoBrowserSource"));
+	source_combo_->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
 	source_label->setBuddy(source_combo_);
+	create_source_button_ = new QPushButton(text("CreateSource.Button"), content);
+	auto *source_row = new QHBoxLayout();
+	source_row->addWidget(source_combo_, 1);
+	source_row->addWidget(create_source_button_);
 
-	write_test_css_button_ = new QPushButton(text("WriteTestCss"), this);
+	// チャットの種類
+	auto *target_label = new QLabel(text("ChatTarget"), content);
+	target_combo_ = new QComboBox(content);
+	target_combo_->addItem(target_display_name(core::ChatTarget::YouTube), target_data(core::ChatTarget::YouTube));
+	target_combo_->addItem(target_display_name(core::ChatTarget::Twitch), target_data(core::ChatTarget::Twitch));
+	target_combo_->setPlaceholderText(text("ChatTarget.Select"));
+	target_label->setBuddy(target_combo_);
+	target_hint_label_ = new QLabel(content);
+	target_hint_label_->setWordWrap(true);
 
-	status_label_ = new QLabel(this);
+	// 設定の項目
+	settings_label_ = new QLabel(content);
+	settings_label_->setWordWrap(true);
+
+	// 適用と元に戻す
+	apply_button_ = new QPushButton(text("Apply"), content);
+	undo_button_ = new QPushButton(text("Undo"), content);
+	auto *action_row = new QHBoxLayout();
+	action_row->addWidget(apply_button_, 1);
+	action_row->addWidget(undo_button_);
+	auto *apply_hint_label = new QLabel(text("ApplyHint"), content);
+	apply_hint_label->setWordWrap(true);
+
+	// 生成した CSS
+	css_toggle_button_ = new QToolButton(content);
+	css_toggle_button_->setText(text("GeneratedCss"));
+	css_toggle_button_->setCheckable(true);
+	css_toggle_button_->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+	css_toggle_button_->setArrowType(Qt::RightArrow);
+	css_toggle_button_->setAutoRaise(true);
+	css_view_ = new QPlainTextEdit(content);
+	css_view_->setReadOnly(true);
+	css_view_->setMinimumHeight(120);
+	copy_css_button_ = new QPushButton(text("CopyCss"), content);
+	css_view_->setVisible(false);
+	copy_css_button_->setVisible(false);
+
+	status_label_ = new QLabel(content);
 	status_label_->setWordWrap(true);
 
 	layout->addWidget(source_label);
-	layout->addWidget(source_combo_);
-	layout->addWidget(write_test_css_button_);
+	layout->addLayout(source_row);
+	layout->addWidget(target_label);
+	layout->addWidget(target_combo_);
+	layout->addWidget(target_hint_label_);
+	layout->addWidget(settings_label_);
+	layout->addLayout(action_row);
+	layout->addWidget(apply_hint_label);
+	layout->addWidget(css_toggle_button_);
+	layout->addWidget(css_view_);
+	layout->addWidget(copy_css_button_);
 	layout->addWidget(status_label_);
 	layout->addStretch();
 
+	auto *scroll = new QScrollArea(this);
+	scroll->setWidgetResizable(true);
+	scroll->setFrameShape(QFrame::NoFrame);
+	scroll->setWidget(content);
+	auto *outer = new QVBoxLayout(this);
+	outer->setContentsMargins(0, 0, 0, 0);
+	outer->addWidget(scroll);
+
 	connect(source_combo_, &SourceComboBox::popup_requested, this, &CommentSkinDock::refresh_sources);
-	connect(write_test_css_button_, &QPushButton::clicked, this, &CommentSkinDock::on_write_test_css);
+	connect(source_combo_, &QComboBox::currentIndexChanged, this, &CommentSkinDock::on_source_changed);
+	connect(create_source_button_, &QPushButton::clicked, this, &CommentSkinDock::on_create_source);
+	connect(target_combo_, &QComboBox::currentIndexChanged, this, &CommentSkinDock::on_target_changed);
+	connect(apply_button_, &QPushButton::clicked, this, &CommentSkinDock::on_apply);
+	connect(undo_button_, &QPushButton::clicked, this, &CommentSkinDock::on_undo);
+	connect(copy_css_button_, &QPushButton::clicked, this, &CommentSkinDock::on_copy_css);
+	connect(css_toggle_button_, &QToolButton::toggled, this, [this](bool open) {
+		css_toggle_button_->setArrowType(open ? Qt::DownArrow : Qt::RightArrow);
+		css_view_->setVisible(open);
+		copy_css_button_->setVisible(open);
+	});
 
 	refresh_sources();
 }
@@ -119,60 +199,203 @@ void CommentSkinDock::refresh_sources()
 	source_combo_->clear();
 	for (const auto &[name, uuid] : entries)
 		source_combo_->addItem(name, uuid);
-	const int index = source_combo_->findData(selected_uuid);
-	if (index >= 0)
-		source_combo_->setCurrentIndex(index);
-	source_combo_->setPlaceholderText(text("NoBrowserSource"));
+	source_combo_->setCurrentIndex(source_combo_->findData(selected_uuid));
 	source_combo_->blockSignals(false);
 
-	write_test_css_button_->setEnabled(!entries.empty());
+	update_view();
 }
 
 void CommentSkinDock::clear_sources()
 {
+	source_combo_->blockSignals(true);
 	source_combo_->clear();
-	write_test_css_button_->setEnabled(false);
+	source_combo_->blockSignals(false);
+	update_view();
 }
 
-void CommentSkinDock::on_write_test_css()
+obs_source_t *CommentSkinDock::selected_source() const
 {
 	const QString uuid = source_combo_->currentData().toString();
-	if (uuid.isEmpty()) {
-		status_label_->setText(text("SelectBrowserSource"));
-		return;
-	}
+	if (uuid.isEmpty())
+		return nullptr;
+	return obs_get_source_by_uuid(uuid.toUtf8().constData());
+}
 
-	obs_source_t *source = obs_get_source_by_uuid(uuid.toUtf8().constData());
+core::ChatTarget CommentSkinDock::current_target() const
+{
+	return core::target_from_string(target_combo_->currentData().toString().toStdString());
+}
+
+std::string CommentSkinDock::generated_css() const
+{
+	// 設定の項目はまだ無いため、管理範囲の中身は空になる
+	return {};
+}
+
+void CommentSkinDock::update_view()
+{
+	obs_source_t *source = selected_source();
+
+	target_combo_->blockSignals(true);
 	if (!source) {
-		status_label_->setText(text("SourceNotFound"));
+		target_combo_->setCurrentIndex(-1);
+		target_combo_->setEnabled(false);
+		target_hint_label_->clear();
+		settings_label_->clear();
+		apply_button_->setEnabled(false);
+		undo_button_->setEnabled(false);
+	} else {
+		const SourceState state = load_source_state(source);
+		const core::ChatTarget detected = core::detect_target(get_source_url(source));
+		const core::ChatTarget target = state.chosen_target != core::ChatTarget::Unknown ? state.chosen_target
+												 : detected;
+		target_combo_->setEnabled(true);
+		target_combo_->setCurrentIndex(target_combo_->findData(target_data(target)));
+
+		if (state.chosen_target != core::ChatTarget::Unknown)
+			target_hint_label_->setText(text("ChatTarget.Chosen"));
+		else if (detected != core::ChatTarget::Unknown)
+			target_hint_label_->setText(text("ChatTarget.Detected").arg(target_display_name(detected)));
+		else
+			target_hint_label_->setText(text("ChatTarget.Undetected"));
+
+		switch (target) {
+		case core::ChatTarget::YouTube:
+			settings_label_->setText(text("Settings.Empty"));
+			break;
+		case core::ChatTarget::Twitch:
+			settings_label_->setText(text("Settings.TwitchUnsupported"));
+			break;
+		case core::ChatTarget::Unknown:
+			settings_label_->clear();
+			break;
+		}
+
+		apply_button_->setEnabled(target == core::ChatTarget::YouTube);
+		undo_button_->setEnabled(state.has_previous);
+		obs_source_release(source);
+	}
+	target_combo_->blockSignals(false);
+
+	const std::string css = generated_css();
+	css_view_->setPlainText(css.empty() ? text("GeneratedCss.Empty") : QString::fromStdString(css));
+	copy_css_button_->setEnabled(!css.empty());
+}
+
+void CommentSkinDock::set_status(const QString &message)
+{
+	status_label_->setText(message);
+}
+
+void CommentSkinDock::on_source_changed()
+{
+	set_status({});
+	update_view();
+}
+
+void CommentSkinDock::on_target_changed()
+{
+	obs_source_t *source = selected_source();
+	if (!source)
+		return;
+
+	// URL から判別できる種類と同じなら記録しない。URL を変えたときに判別をやり直せるようにするため
+	const core::ChatTarget chosen = current_target();
+	const core::ChatTarget detected = core::detect_target(get_source_url(source));
+	save_chosen_target(source, chosen == detected ? core::ChatTarget::Unknown : chosen);
+	obs_source_release(source);
+	update_view();
+}
+
+void CommentSkinDock::on_create_source()
+{
+	CreateSourceDialog dialog(this);
+	if (dialog.exec() != QDialog::Accepted)
+		return;
+
+	refresh_sources();
+	const int index = source_combo_->findData(dialog.created_uuid());
+	if (index >= 0)
+		source_combo_->setCurrentIndex(index);
+	set_status(text("CreateSource.Created"));
+}
+
+void CommentSkinDock::on_apply()
+{
+	obs_source_t *source = selected_source();
+	if (!source) {
+		set_status(text("SourceNotFound"));
 		refresh_sources();
 		return;
 	}
+	const QString name = source_name(source);
 
-	obs_data_t *settings = obs_source_get_settings(source);
-	const QString current_css = QString::fromUtf8(obs_data_get_string(settings, "css"));
-	obs_data_release(settings);
+	const std::string current = get_source_css(source);
+	const auto updated = core::replace_block(current, generated_css());
+	if (!updated) {
+		obs_source_release(source);
+		QMessageBox::warning(this, text("DockTitle"), text("Apply.BrokenMarkers"));
+		return;
+	}
+	if (*updated == current) {
+		obs_source_release(source);
+		set_status(text("Apply.NoChange"));
+		return;
+	}
 
-	const QString stamp = QDateTime::currentDateTime().toString(Qt::ISODate);
-	const QString block = TEST_CSS_BEGIN + QStringLiteral("\n/* written at ") + stamp +
-			      QStringLiteral(" */\nbody { outline: 4px solid #e53935; outline-offset: -4px; }\n"
-					     "html:not([dark]) body { outline-color: #1e88e5; }\n"
-					     "yt-live-chat-text-message-renderer:has(#author-name.member) "
-					     "{ background-color: rgba(0, 200, 0, 0.35) !important; }\n") +
-			      TEST_CSS_END;
-	const QByteArray new_css = replace_test_block(current_css, block).toUtf8();
-
-	obs_data_t *update = obs_data_create();
-	obs_data_set_string(update, "css", new_css.constData());
-	obs_source_update(source, update);
-	obs_data_release(update);
-
-	const QString name = QString::fromUtf8(obs_source_get_name(source));
-	obs_log(LOG_INFO, "wrote test CSS to browser source '%s' (%s)", name.toUtf8().constData(),
-		stamp.toUtf8().constData());
+	save_apply_record(source, current, *updated);
+	set_source_css(source, *updated);
+	obs_log(LOG_INFO, "applied CSS to browser source '%s'", name.toUtf8().constData());
 	obs_source_release(source);
 
-	status_label_->setText(text("WroteTestCss").arg(name, stamp));
+	set_status(text("Apply.Done").arg(name));
+	update_view();
+}
+
+void CommentSkinDock::on_undo()
+{
+	obs_source_t *source = selected_source();
+	if (!source) {
+		set_status(text("SourceNotFound"));
+		refresh_sources();
+		return;
+	}
+	const QString name = source_name(source);
+	const SourceState state = load_source_state(source);
+	const std::string current = get_source_css(source);
+
+	switch (core::decide_undo(state.has_previous, current, state.applied_css)) {
+	case core::UndoDecision::Nothing:
+		obs_source_release(source);
+		set_status(text("Undo.Nothing"));
+		update_view();
+		return;
+	case core::UndoDecision::RestoreWithConfirm:
+		if (QMessageBox::question(this, text("DockTitle"), text("Undo.ConfirmEdited")) != QMessageBox::Yes) {
+			obs_source_release(source);
+			return;
+		}
+		break;
+	case core::UndoDecision::Restore:
+		break;
+	}
+
+	clear_apply_record(source);
+	set_source_css(source, state.previous_css);
+	obs_log(LOG_INFO, "restored previous CSS of browser source '%s'", name.toUtf8().constData());
+	obs_source_release(source);
+
+	set_status(text("Undo.Done").arg(name));
+	update_view();
+}
+
+void CommentSkinDock::on_copy_css()
+{
+	const std::string css = generated_css();
+	if (css.empty())
+		return;
+	QApplication::clipboard()->setText(QString::fromStdString(css));
+	set_status(text("CopyCss.Done"));
 }
 
 } // namespace cskin

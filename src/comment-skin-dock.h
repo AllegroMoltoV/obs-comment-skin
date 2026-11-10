@@ -18,10 +18,18 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #pragma once
 
+#include "core/chat-target.h"
+
+#include <obs.h>
+
 #include <QComboBox>
 #include <QLabel>
+#include <QPlainTextEdit>
 #include <QPushButton>
+#include <QToolButton>
 #include <QWidget>
+
+#include <string>
 
 namespace cskin {
 
@@ -47,11 +55,31 @@ public:
 	void clear_sources();
 
 private slots:
-	void on_write_test_css();
+	void on_source_changed();
+	void on_target_changed();
+	void on_create_source();
+	void on_apply();
+	void on_undo();
+	void on_copy_css();
 
 private:
+	// 選択中のソース。参照を 1 つ持つため、呼び出し側が obs_source_release() で返す
+	obs_source_t *selected_source() const;
+	core::ChatTarget current_target() const;
+	std::string generated_css() const;
+	void update_view();
+	void set_status(const QString &message);
+
 	SourceComboBox *source_combo_{nullptr};
-	QPushButton *write_test_css_button_{nullptr};
+	QPushButton *create_source_button_{nullptr};
+	QComboBox *target_combo_{nullptr};
+	QLabel *target_hint_label_{nullptr};
+	QLabel *settings_label_{nullptr};
+	QPushButton *apply_button_{nullptr};
+	QPushButton *undo_button_{nullptr};
+	QToolButton *css_toggle_button_{nullptr};
+	QPlainTextEdit *css_view_{nullptr};
+	QPushButton *copy_css_button_{nullptr};
 	QLabel *status_label_{nullptr};
 };
 
