@@ -34,6 +34,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 namespace cskin {
 
+class PreviewPanel;
 class YouTubeSettingsPanel;
 
 // 一覧を開くたびに候補を作り直すコンボボックス
@@ -56,6 +57,8 @@ public:
 
 	void refresh_sources();
 	void clear_sources();
+	// OBS の終了の前に、見本のブラウザーを閉じる
+	void shutdown();
 
 private slots:
 	void on_source_changed();
@@ -84,6 +87,7 @@ private:
 	QLabel *target_hint_label_{nullptr};
 	QLabel *settings_label_{nullptr};
 	YouTubeSettingsPanel *youtube_panel_{nullptr};
+	PreviewPanel *preview_{nullptr};
 	QPushButton *undo_button_{nullptr};
 	QTimer *apply_timer_{nullptr};
 	QString pending_uuid_; // 適用を待っているソース

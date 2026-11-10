@@ -20,6 +20,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include "core/managed-css.h"
 #include "create-source-dialog.h"
+#include "preview-panel.h"
 #include "settings-widgets.h"
 #include "source-state.h"
 
@@ -126,6 +127,8 @@ CommentSkinDock::CommentSkinDock(QWidget *parent) : QWidget(parent)
 	settings_label_->setWordWrap(true);
 	youtube_panel_ = new YouTubeSettingsPanel(content);
 	youtube_panel_->setVisible(false);
+	preview_ = new PreviewPanel(content);
+	preview_->setVisible(false);
 
 	// 自動の適用と元に戻す
 	undo_button_ = new QPushButton(text("Undo"), content);
@@ -162,6 +165,7 @@ CommentSkinDock::CommentSkinDock(QWidget *parent) : QWidget(parent)
 	layout->addWidget(target_combo_);
 	layout->addWidget(target_hint_label_);
 	layout->addWidget(settings_label_);
+	layout->addWidget(preview_);
 	layout->addWidget(youtube_panel_);
 	layout->addLayout(action_row);
 	layout->addWidget(apply_hint_label);
@@ -256,6 +260,7 @@ void CommentSkinDock::update_view()
 		settings_label_->clear();
 		settings_label_->setVisible(false);
 		youtube_panel_->setVisible(false);
+		preview_->setVisible(false);
 		undo_button_->setEnabled(false);
 	} else {
 		const SourceState state = load_source_state(source);
@@ -276,6 +281,7 @@ void CommentSkinDock::update_view()
 		if (youtube)
 			youtube_panel_->set_style(load_youtube_style(source));
 		youtube_panel_->setVisible(youtube);
+		preview_->setVisible(youtube);
 		settings_label_->setVisible(target == core::ChatTarget::Twitch);
 		settings_label_->setText(text("Settings.TwitchUnsupported"));
 
@@ -292,6 +298,14 @@ void CommentSkinDock::update_css_view()
 	const std::string css = generated_css();
 	css_view_->setPlainText(css.empty() ? text("GeneratedCss.Empty") : QString::fromStdString(css));
 	copy_css_button_->setEnabled(!css.empty());
+	preview_->set_css(css);
+}
+
+void CommentSkinDock::shutdown()
+{
+	apply_timer_->stop();
+	pending_uuid_.clear();
+	preview_->shutdown();
 }
 
 void CommentSkinDock::on_settings_changed()

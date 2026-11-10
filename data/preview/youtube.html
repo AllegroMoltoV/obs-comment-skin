@@ -1,0 +1,82 @@
+<!doctype html>
+<!--
+  コメント欄の着せ替え / Comment Skin のドックに表示する、YouTube のチャットの見本。
+  生成した CSS を試せるよう、YouTube のポップアウトのチャットと同じ要素名と ID で組んでいる。
+  土台の見た目は本プラグインのために書いたもので、YouTube の CSS は使っていない。
+  外部の資源を読み込まないよう、CSP ですべての通信を禁じている。
+-->
+<html lang="ja" dark>
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:">
+<title>Comment Skin preview</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #3a3f4b; overflow: hidden; }
+  body { font-family: Roboto, Arial, sans-serif; }
+  yt-live-chat-renderer { display: flex; flex-direction: column; height: 100%; background-color: #0f0f0f; color: #fff; }
+  yt-live-chat-header-renderer { display: flex; align-items: center; height: 40px; padding: 0 16px; background-color: #0f0f0f; border-bottom: 1px solid #303030; font-size: 14px; color: #f1f1f1; }
+  #item-scroller { flex: 1; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; padding: 8px 0; }
+  yt-live-chat-text-message-renderer { display: flex; align-items: flex-start; padding: 4px 24px; font-size: 14px; }
+  yt-img-shadow#author-photo { flex: none; width: 24px; height: 24px; margin-right: 16px; border-radius: 50%; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 500; color: #fff; }
+  #content { min-width: 0; line-height: 20px; }
+  #timestamp { margin-right: 8px; font-size: 11px; color: #aaa; }
+  yt-live-chat-author-chip { margin-right: 8px; }
+  #author-name { font-weight: 500; color: #aaa; }
+  #author-name.member { color: #2ba640; }
+  #author-name.moderator { color: #5e84f1; }
+  #author-name.owner { padding: 0 4px; border-radius: 2px; background-color: #ffd600; color: #111; }
+  #chat-badges svg { width: 14px; height: 14px; margin-left: 2px; vertical-align: -2px; }
+  #message { font-size: 14px; line-height: 20px; color: #fff; word-wrap: break-word; }
+</style>
+<style id="cskin-generated"></style>
+</head>
+<body>
+<yt-live-chat-renderer>
+  <yt-live-chat-header-renderer>チャット</yt-live-chat-header-renderer>
+  <div id="item-scroller">
+    <div id="items">
+      <yt-live-chat-text-message-renderer author-type="">
+        <yt-img-shadow id="author-photo" style="background:#7e57c2">あ</yt-img-shadow>
+        <div id="content">
+          <span id="timestamp">20:01</span>
+          <yt-live-chat-author-chip><span id="author-name">あおぞら</span></yt-live-chat-author-chip>
+          <span id="message">こんばんは!今日も楽しみにしていました</span>
+        </div>
+      </yt-live-chat-text-message-renderer>
+      <yt-live-chat-text-message-renderer author-type="member">
+        <yt-img-shadow id="author-photo" style="background:#26a69a">み</yt-img-shadow>
+        <div id="content">
+          <span id="timestamp">20:01</span>
+          <yt-live-chat-author-chip><span id="author-name" class="member">みどりの森</span><span id="chat-badges"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="#2ba640"/></svg></span></yt-live-chat-author-chip>
+          <span id="message">メンバーになりました。応援しています</span>
+        </div>
+      </yt-live-chat-text-message-renderer>
+      <yt-live-chat-text-message-renderer author-type="moderator">
+        <yt-img-shadow id="author-photo" style="background:#5c6bc0">し</yt-img-shadow>
+        <div id="content">
+          <span id="timestamp">20:02</span>
+          <yt-live-chat-author-chip><span id="author-name" class="moderator">しずく</span><span id="chat-badges"><svg viewBox="0 0 16 16"><path d="M8 1l6 3v4c0 3.5-2.6 6.3-6 7-3.4-.7-6-3.5-6-7V4z" fill="#5e84f1"/></svg></span></yt-live-chat-author-chip>
+          <span id="message">リクエストはこちらのコメントで受け付けています</span>
+        </div>
+      </yt-live-chat-text-message-renderer>
+      <yt-live-chat-text-message-renderer author-type="owner">
+        <yt-img-shadow id="author-photo" style="background:#ef6c00">配</yt-img-shadow>
+        <div id="content">
+          <span id="timestamp">20:02</span>
+          <yt-live-chat-author-chip><span id="author-name" class="owner">配信者</span></yt-live-chat-author-chip>
+          <span id="message">みなさんありがとう!始めていきます</span>
+        </div>
+      </yt-live-chat-text-message-renderer>
+      <yt-live-chat-text-message-renderer author-type="">
+        <yt-img-shadow id="author-photo" style="background:#8d6e63">K</yt-img-shadow>
+        <div id="content">
+          <span id="timestamp">20:03</span>
+          <yt-live-chat-author-chip><span id="author-name">Kei</span></yt-live-chat-author-chip>
+          <span id="message">Hello from overseas! 長いコメントが折り返されたときの見え方も確かめられるように、少し長めに書いています。</span>
+        </div>
+      </yt-live-chat-text-message-renderer>
+    </div>
+  </div>
+</yt-live-chat-renderer>
+</body>
+</html>

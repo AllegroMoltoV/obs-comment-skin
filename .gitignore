@@ -6,6 +6,7 @@
 !/build-aux
 !/cmake
 !/data
+!/deps
 !/docs
 !/src
 !/tests

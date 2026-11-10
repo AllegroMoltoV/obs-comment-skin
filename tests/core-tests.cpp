@@ -20,6 +20,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include "core/chat-target.h"
 #include "core/managed-css.h"
+#include "core/preview-script.h"
 #include "core/youtube-style.h"
 
 #include <iostream>
@@ -213,6 +214,24 @@ void test_youtube_css_clamps_and_alpha()
 	}
 }
 
+void test_js_string_literal()
+{
+	CHECK(js_string_literal("a { color: red; }") == "\"a { color: red; }\"");
+	CHECK(js_string_literal("q\"b\\") == "\"q\\\"b\\\\\"");
+	CHECK(js_string_literal("x\ny\r\tz") == "\"x\\ny\\r\\tz\"");
+	CHECK(js_string_literal("</style><script>") == "\"\\u003c/style\\u003e\\u003cscript\\u003e\"");
+	CHECK(js_string_literal(std::string("\x01", 1)) == "\"\\u0001\"");
+	CHECK(js_string_literal("\xe2\x80\xa8\xe2\x80\xa9") == "\"\\u2028\\u2029\"");
+	CHECK(js_string_literal("日本語") == "\"日本語\"");
+}
+
+void test_preview_style_script()
+{
+	const std::string script = preview_style_script("a{}");
+	CHECK(script.find("cskin-generated") != std::string::npos);
+	CHECK(script.find("textContent=\"a{}\"") != std::string::npos);
+}
+
 } // namespace
 
 int main()
@@ -231,6 +250,8 @@ int main()
 	test_youtube_css_empty();
 	test_youtube_css_values();
 	test_youtube_css_clamps_and_alpha();
+	test_js_string_literal();
+	test_preview_style_script();
 
 	if (failures > 0) {
 		std::cerr << failures << " check(s) failed\n";

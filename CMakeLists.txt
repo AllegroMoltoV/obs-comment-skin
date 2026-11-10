@@ -52,6 +52,13 @@ file(GLOB_RECURSE PLUGIN_RESOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR
 
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE ${PLUGIN_SOURCES} ${PLUGIN_RESOURCES})
 
+# obs-browser のパネルの API のヘッダー。ドックの見本のプレビューで使う
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/deps/obs-browser")
+# Wayland ではパネルを使えないため、ヘッダーの判定を有効にする
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE ENABLE_WAYLAND)
+endif()
+
 # Solution Explorer のツリー表示を実ディレクトリに揃える
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" FILES ${PLUGIN_SOURCES} ${PLUGIN_RESOURCES})
 
