@@ -4,6 +4,8 @@ OBS Studio のブラウザーソースに表示した YouTube のチャットの
 
 A plugin for OBS Studio that restyles the YouTube chat shown in a browser source from a dock, without writing CSS.
 
+![OBS Studio のドックでコメント欄の着せ替えの設定を変え、プレビューと配信画面のチャットの見た目が変わる様子](docs/images/obs-comment-skin.gif)
+
 本プラグインは YouTube および Twitch とは提携しておらず、両社の承認を受けたものではありません。
 
 This plugin is not affiliated with, endorsed by, or sponsored by YouTube or Twitch.
